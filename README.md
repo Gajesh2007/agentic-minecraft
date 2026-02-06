@@ -1,5 +1,7 @@
 # Agentic Minecraft
 
+![Agentic Minecraft](clawcraft_image.png)
+
 An autonomous Minecraft city builder. An LLM agent (Claude Opus 4.6) connects to a Minecraft server, explores terrain, designs buildings, constructs them, furnishes interiors, landscapes surroundings, and populates with villagers — all without human intervention.
 
 The agent has persistent memory, learns from its own mistakes, and gets better over time.
