@@ -102,10 +102,16 @@ export class TaskExecutor {
         });
       }
       case 'sequence': {
-        for (const step of task.steps) {
+        for (let i = 0; i < task.steps.length; i++) {
+          const step = task.steps[i]!;
           if (signal.aborted) return { status: 'interrupted', task, duration: 0 };
+          const detail = summarizeTask(step);
+          console.log(`  [task] SEQ ${i + 1}/${task.steps.length}: ${detail}`);
+          this.events.publish('task.start', { task: step.task, detail });
           const result = await this.dispatch(step, signal);
+          console.log(`  [task] SEQ ${i + 1}/${task.steps.length}: ${result.status}${result.error ? ` — ${result.error}` : ''}`);
           if (result.status === 'failed') {
+            console.log(`  [task] SEQ ABORTED at step ${i + 1}: ${result.error}`);
             return { ...result, task };
           }
         }

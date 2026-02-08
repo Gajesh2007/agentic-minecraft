@@ -39,10 +39,16 @@ export async function executeCraft(
     return { status: 'failed', task, error: 'No crafting table found nearby. Craft or place one first.', duration: 0 };
   }
 
-  // Walk to the crafting table
+  // Walk to the crafting table (with timeout)
   try {
-    const goal = new goals.GoalGetToBlock(tableBlock.position.x, tableBlock.position.y, tableBlock.position.z);
-    await bot.pathfinder.goto(goal);
+    const goal = new goals.GoalNear(tableBlock.position.x, tableBlock.position.y, tableBlock.position.z, 3);
+    const reached = await new Promise<boolean>(resolve => {
+      const timer = setTimeout(() => { bot.pathfinder.stop(); resolve(false); }, 15000);
+      bot.pathfinder.goto(goal)
+        .then(() => { clearTimeout(timer); resolve(true); })
+        .catch(() => { clearTimeout(timer); resolve(false); });
+    });
+    if (!reached) return { status: 'failed', task, error: 'Could not reach crafting table (timeout)', duration: 0 };
   } catch {
     return { status: 'failed', task, error: 'Could not reach crafting table', duration: 0 };
   }

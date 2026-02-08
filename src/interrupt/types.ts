@@ -17,9 +17,10 @@ export type Interrupt = {
   data: Record<string, unknown>;
 };
 
+// Only truly critical interrupts cancel the current task
+// damage_taken is NOT urgent — let the bot finish what it's doing
+// health_low IS urgent — need to react when actually dying
 export const URGENT_INTERRUPTS: Set<InterruptType> = new Set([
-  'damage_taken',
   'health_low',
-  'hostile_nearby',
   'death',
 ]);

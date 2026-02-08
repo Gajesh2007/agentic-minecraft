@@ -138,12 +138,26 @@ export class Brain {
     // Handle executeTask — AI SDK v6 uses .input for tool call arguments
     const taskCall = allToolCalls.find(c => c.toolName === 'executeTask');
     if (taskCall) {
-      const input = (taskCall as any).input as { task: Task } | undefined;
-      const task = input?.task;
+      const input = (taskCall as any).input as { task: Task | string } | undefined;
+      let task: Task | undefined;
+
+      // The LLM sometimes returns the task as a JSON string instead of an object
+      const rawTask = input?.task;
+      if (typeof rawTask === 'string') {
+        try {
+          task = JSON.parse(rawTask) as Task;
+        } catch {
+          console.log(`[brain] WARNING: executeTask task is a string but not valid JSON:`, rawTask.slice(0, 200));
+          this.lastTaskResult = { status: 'failed', task: { task: 'wait', seconds: 5 } as Task, error: 'Malformed task string from brain', duration: 0 };
+          return;
+        }
+      } else {
+        task = rawTask as Task | undefined;
+      }
 
       if (!task || !task.task) {
         console.log(`[brain] WARNING: executeTask called but task is malformed:`, JSON.stringify(input)?.slice(0, 300));
-        this.lastTaskResult = { status: 'failed', task: task ?? { task: 'wait', seconds: 5 } as Task, error: 'Malformed task from brain', duration: 0 };
+        this.lastTaskResult = { status: 'failed', task: { task: 'wait', seconds: 5 } as Task, error: 'Malformed task from brain', duration: 0 };
         return;
       }
 

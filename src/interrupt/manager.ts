@@ -24,20 +24,28 @@ export class InterruptManager {
 
     const mfBot = this.bot.getBot();
 
-    // Health monitoring
+    // Health monitoring (debounced — only fire once per 15s)
+    let lastHealthLowAlert = 0;
+    let lastHungerAlert = 0;
     mfBot.on('health', () => {
-      if (mfBot.health <= 6) {
+      const now = Date.now();
+      if (mfBot.health <= 6 && now - lastHealthLowAlert > 15000) {
+        lastHealthLowAlert = now;
         this.fire('health_low', { health: mfBot.health, food: mfBot.food });
       }
-      if (mfBot.food <= 6) {
+      if (mfBot.food <= 6 && now - lastHungerAlert > 30000) {
+        lastHungerAlert = now;
         this.fire('hunger_critical', { food: mfBot.food });
       }
     });
 
-    // Damage detection (health decreasing)
+    // Damage detection (debounced — only fire once per 10s)
     let lastHealth = mfBot.health;
+    let lastDamageAlert = 0;
     mfBot.on('health', () => {
-      if (mfBot.health < lastHealth) {
+      const now = Date.now();
+      if (mfBot.health < lastHealth && now - lastDamageAlert > 10000) {
+        lastDamageAlert = now;
         this.fire('damage_taken', {
           health: mfBot.health,
           damage: lastHealth - mfBot.health,
