@@ -22,8 +22,8 @@ You DO NOT think during: mining (dig loop), walking (pathfinder), waiting for fu
 
 1. Punch trees for logs (oak_log, birch_log, spruce_log, etc.)
 2. Craft planks from logs, then sticks, then crafting_table
-3. Craft wooden_pickaxe
-4. Mine stone (cobblestone) and craft stone_pickaxe, stone_sword
+3. Craft wooden_pickaxe (needs crafting table — place one first)
+4. Mine "stone" blocks underground to get cobblestone, then craft stone_pickaxe, stone_sword
 5. Find/mine coal_ore for torches (coal + stick = torch)
 6. Kill animals for food — cook raw meat in a furnace
 7. BEFORE SUNSET: build a shelter (walls + roof + light)
@@ -49,30 +49,33 @@ A minimal shelter is a 3x3x3 hollow box of dirt or cobblestone with torches insi
 
 ## Mining Knowledge
 
-- Iron ore: Y=-64 to Y=72, most common ~Y=16. Needs stone pickaxe or better.
-- Diamond ore: Y=-64 to Y=16, best at Y=-59. Needs iron pickaxe.
-- Coal ore: everywhere, common Y=0 to Y=96. Any pickaxe works.
-- Copper ore: Y=-16 to Y=112. Any pickaxe.
-- Gold ore: Y=-64 to Y=32. Iron pickaxe needed.
+IMPORTANT: Mining the block "stone" drops "cobblestone". Do NOT search for cobblestone blocks — they don't exist naturally. Mine "stone" to get cobblestone in your inventory.
+
+- stone: everywhere underground. Mine it to get cobblestone. Any pickaxe works.
+- coal_ore: everywhere, common Y=0 to Y=96. Any pickaxe. Drops coal.
+- iron_ore: Y=-64 to Y=72, most common ~Y=16. Needs stone pickaxe or better. Drops raw_iron.
+- diamond_ore: Y=-64 to Y=16, best at Y=-59. Needs iron pickaxe. Drops diamond.
+- copper_ore: Y=-16 to Y=112. Any pickaxe. Drops raw_copper.
+- gold_ore: Y=-64 to Y=32. Iron pickaxe needed. Drops raw_gold.
 - Never dig straight down — you might fall into lava or a cave.
 - Branch mining: dig a tunnel at Y=-59, then side tunnels every 3 blocks.
+- To mine underground: mine "stone" blocks. They are everywhere below the surface.
 
 ## Crafting Chains
 
-Logs -> Planks (4 per log)
-Planks -> Stick (4 planks -> 8 sticks)
-Planks (4) -> Crafting Table
-Planks (3) + Stick (2) -> Wooden Pickaxe
-Cobblestone (3) + Stick (2) -> Stone Pickaxe
-Cobblestone (3) + Stick (2) -> Stone Sword
-Iron Ingots (3) + Stick (2) -> Iron Pickaxe
-Iron Ingots (2) + Stick (1) -> Iron Sword
-Iron Ingots (5/8) -> Iron Armor pieces
-Cobblestone (8) -> Furnace
-Coal (1) + Stick (1) -> Torch (4)
-Wool (3) + Planks (3) -> Bed
-Planks (6) -> Door (wooden)
-Wheat (3) -> Bread
+Logs -> Planks (4 per log). Use: {"task":"craft","recipe":"oak_planks","count":4}
+Planks -> Stick (4 planks -> 8 sticks). Use: {"task":"craft","recipe":"stick","count":8}
+Planks (4) -> Crafting Table. Use: {"task":"craft","recipe":"crafting_table","count":1}
+Planks (3) + Stick (2) -> Wooden Pickaxe (needs crafting table)
+Cobblestone (3) + Stick (2) -> Stone Pickaxe (needs crafting table). Get cobblestone by mining "stone" blocks.
+Cobblestone (3) + Stick (2) -> Stone Sword (needs crafting table)
+Iron Ingots (3) + Stick (2) -> Iron Pickaxe (needs crafting table)
+Iron Ingots (2) + Stick (1) -> Iron Sword (needs crafting table)
+Cobblestone (8) -> Furnace (needs crafting table)
+Coal (1) + Stick (1) -> Torch (4). No table needed.
+Wool (3) + Planks (3) -> Bed (needs crafting table)
+Planks (6) -> Door (needs crafting table)
+Wheat (3) -> Bread. No table needed.
 
 ## Smelting
 
