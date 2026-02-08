@@ -2,6 +2,16 @@ import pkg from 'mineflayer-pathfinder';
 const { goals } = pkg;
 import type { CraftTask, TaskResult } from '../types.js';
 
+/** Wrap bot.craft with a timeout to prevent infinite hangs if crafting table window never opens */
+async function craftWithTimeout(bot: any, recipe: any, iterations: number, table: any, timeoutMs = 30000): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Craft timed out — crafting table may be out of reach')), timeoutMs);
+    bot.craft(recipe, iterations, table)
+      .then(() => { clearTimeout(timer); resolve(); })
+      .catch((err: any) => { clearTimeout(timer); reject(err); });
+  });
+}
+
 export async function executeCraft(
   bot: any,
   task: CraftTask,
@@ -17,11 +27,10 @@ export async function executeCraft(
 
   if (recipes.length > 0) {
     try {
-      // count = desired output quantity. Recipe may produce multiple per iteration.
       const outputPerCraft = recipes[0]!.result?.count ?? 1;
       const iterations = Math.ceil(task.count / outputPerCraft);
-      console.log(`    [craft] Crafting ${task.count} ${task.recipe} (${iterations} iterations, ${outputPerCraft} per craft, no table)`);
-      await bot.craft(recipes[0]!, iterations, null);
+      console.log(`    [craft] ${task.count} ${task.recipe} (${iterations} iters × ${outputPerCraft} each, no table)`);
+      await craftWithTimeout(bot, recipes[0]!, iterations, null);
       return { status: 'completed', task, itemsCrafted: task.count, duration: 0 };
     } catch (err: any) {
       return { status: 'failed', task, error: `Craft failed: ${err.message}`, duration: 0 };
@@ -31,16 +40,13 @@ export async function executeCraft(
   // Need a crafting table — find one nearby
   const tableBlockType = bot.registry.blocksByName.crafting_table;
   if (!tableBlockType) {
-    return { status: 'failed', task, error: 'No crafting_table in registry', duration: 0 };
+    return { status: 'failed', task, error: 'No crafting_table block in registry', duration: 0 };
   }
 
-  const tableBlock = bot.findBlock({
-    matching: tableBlockType.id,
-    maxDistance: 32,
-  });
+  let tableBlock = bot.findBlock({ matching: tableBlockType.id, maxDistance: 32 });
 
   if (!tableBlock) {
-    return { status: 'failed', task, error: 'No crafting table found nearby. Craft or place one first.', duration: 0 };
+    return { status: 'failed', task, error: 'No crafting table nearby — craft and place one first', duration: 0 };
   }
 
   // Walk to the crafting table
@@ -53,7 +59,13 @@ export async function executeCraft(
 
   if (signal.aborted) return { status: 'interrupted', task, duration: 0 };
 
-  // Try recipes with the crafting table
+  // Re-find the table block (it may have been refreshed after pathfinding)
+  tableBlock = bot.findBlock({ matching: tableBlockType.id, maxDistance: 6 });
+  if (!tableBlock) {
+    return { status: 'failed', task, error: 'Crafting table disappeared after walking to it', duration: 0 };
+  }
+
+  // Check recipes with the actual table block
   recipes = bot.recipesFor(item.id, null, 1, tableBlock);
   if (recipes.length === 0) {
     return { status: 'failed', task, error: `No recipe for ${task.recipe} (missing ingredients?)`, duration: 0 };
@@ -62,8 +74,8 @@ export async function executeCraft(
   try {
     const outputPerCraft = recipes[0]!.result?.count ?? 1;
     const iterations = Math.ceil(task.count / outputPerCraft);
-    console.log(`    [craft] Crafting ${task.count} ${task.recipe} (${iterations} iterations, ${outputPerCraft} per craft, with table)`);
-    await bot.craft(recipes[0]!, iterations, tableBlock);
+    console.log(`    [craft] ${task.count} ${task.recipe} (${iterations} iters × ${outputPerCraft} each, with table)`);
+    await craftWithTimeout(bot, recipes[0]!, iterations, tableBlock);
     return { status: 'completed', task, itemsCrafted: task.count, duration: 0 };
   } catch (err: any) {
     return { status: 'failed', task, error: `Craft failed: ${err.message}`, duration: 0 };

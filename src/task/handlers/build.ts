@@ -39,60 +39,60 @@ export async function executePlaceBlock(
   task: PlaceBlockTask,
   signal: AbortSignal,
 ): Promise<TaskResult> {
-  // Find the item in inventory
-  const items = bot.inventory.items();
-  const item = items.find((i: any) => i.name === task.block);
+  // If position is 0,0,0 use a spot next to the bot (means "place here")
+  const pos = (task.position.x === 0 && task.position.y === 0 && task.position.z === 0)
+    ? { x: Math.floor(bot.entity.position.x) + 1, y: Math.floor(bot.entity.position.y), z: Math.floor(bot.entity.position.z) }
+    : task.position;
+
+  const targetPos = new Vec3(pos.x, pos.y, pos.z);
+
+  // Pathfind close to target — use adjusted pos, not original task.position
+  const goal = new goals.GoalNear(pos.x, pos.y, pos.z, 3);
+  try { await bot.pathfinder.goto(goal); } catch { /* best effort */ }
+
+  // Find the item fresh from inventory (don't use stale references)
+  const item = bot.inventory.items().find((i: any) => i.name === task.block);
   if (!item) {
-    const available = items.map((i: any) => i.name).join(', ');
+    const available = bot.inventory.items().map((i: any) => i.name).join(', ');
     console.log(`    [placeBlock] No ${task.block} in inventory. Have: ${available}`);
     return { status: 'failed', task, error: `No ${task.block} in inventory`, duration: 0 };
   }
 
   try {
-    // Equip the block
-    console.log(`    [placeBlock] Equipping ${item.name} (count: ${item.count})`);
-    await bot.equip(item, 'hand');
-    await bot.waitForTicks(3); // Wait for equip to register
-
-    // If position is 0,0,0 use bot's current position (means "place here")
-    const pos = (task.position.x === 0 && task.position.y === 0 && task.position.z === 0)
-      ? { x: Math.floor(bot.entity.position.x) + 1, y: Math.floor(bot.entity.position.y), z: Math.floor(bot.entity.position.z) }
-      : task.position;
-    const targetPos = new Vec3(pos.x, pos.y, pos.z);
-    const goal = new goals.GoalNear(task.position.x, task.position.y, task.position.z, 4);
-    try { await bot.pathfinder.goto(goal); } catch { /* best effort */ }
-
-    // Re-equip after walking (pathfinder may have changed held item)
-    await bot.equip(item, 'hand');
+    // Equip using item type ID (more reliable than item object reference)
+    await bot.equip(item.type, 'hand');
     await bot.waitForTicks(3);
 
-    // Try placing against the block below
-    const below = bot.blockAt(targetPos.offset(0, -1, 0));
-    if (below && below.name !== 'air') {
-      await bot.placeBlock(below, new Vec3(0, 1, 0));
-      return { status: 'completed', task, blocksPlaced: 1, duration: 0 };
+    // Verify we're actually holding the item
+    if (!bot.heldItem) {
+      return { status: 'failed', task, error: 'Failed to equip item — heldItem is null after equip', duration: 0 };
     }
 
-    // Try other faces
+    console.log(`    [placeBlock] Placing ${task.block} at ${pos.x},${pos.y},${pos.z} (holding: ${bot.heldItem.name})`);
+
+    // Try placing against adjacent blocks, in priority order
     const faces = [
-      { offset: new Vec3(0, 1, 0), face: new Vec3(0, -1, 0) },
-      { offset: new Vec3(-1, 0, 0), face: new Vec3(1, 0, 0) },
-      { offset: new Vec3(1, 0, 0), face: new Vec3(-1, 0, 0) },
-      { offset: new Vec3(0, 0, -1), face: new Vec3(0, 0, 1) },
-      { offset: new Vec3(0, 0, 1), face: new Vec3(0, 0, -1) },
+      { offset: new Vec3(0, -1, 0), face: new Vec3(0, 1, 0) },   // on top of block below
+      { offset: new Vec3(0, 1, 0), face: new Vec3(0, -1, 0) },    // under block above
+      { offset: new Vec3(-1, 0, 0), face: new Vec3(1, 0, 0) },    // east of block to west
+      { offset: new Vec3(1, 0, 0), face: new Vec3(-1, 0, 0) },    // west of block to east
+      { offset: new Vec3(0, 0, -1), face: new Vec3(0, 0, 1) },    // south of block to north
+      { offset: new Vec3(0, 0, 1), face: new Vec3(0, 0, -1) },    // north of block to south
     ];
 
     for (const { offset, face } of faces) {
       const ref = bot.blockAt(targetPos.plus(offset));
-      if (ref && ref.name !== 'air') {
-        const goal = new goals.GoalNear(task.position.x, task.position.y, task.position.z, 4);
-        try { await bot.pathfinder.goto(goal); } catch { /* best effort */ }
+      if (ref && ref.name !== 'air' && ref.name !== 'cave_air') {
+        // Re-equip before each attempt (pathfinder or other actions may change held item)
+        await bot.equip(item.type, 'hand');
+        await bot.waitForTicks(2);
         await bot.placeBlock(ref, face);
+        console.log(`    [placeBlock] Placed ${task.block} successfully`);
         return { status: 'completed', task, blocksPlaced: 1, duration: 0 };
       }
     }
 
-    return { status: 'failed', task, error: 'No adjacent block to place against', duration: 0 };
+    return { status: 'failed', task, error: 'No adjacent solid block to place against', duration: 0 };
   } catch (err: any) {
     return { status: 'failed', task, error: `Place failed: ${err.message}`, duration: 0 };
   }

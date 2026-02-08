@@ -134,12 +134,17 @@ export function buildBrainTools(bot: BotConnection, memory: AgentMemory) {
         const mfBot = bot.getBot();
         const itemType = mfBot.registry.itemsByName[input.item];
         if (!itemType) return { error: `Unknown item: ${input.item}`, canCraft: false };
+        // Check recipes without a crafting table (2x2 inventory grid)
         const noTable = mfBot.recipesFor(itemType.id, null, 1, null);
-        const withTable = mfBot.recipesFor(itemType.id, null, 1, true);
+        // Check recipes that need a crafting table — find one nearby for accurate check
+        const tableBlockType = mfBot.registry.blocksByName.crafting_table;
+        const nearbyTable = tableBlockType ? mfBot.findBlock({ matching: tableBlockType.id, maxDistance: 32 }) : null;
+        const withTable = nearbyTable ? mfBot.recipesFor(itemType.id, null, 1, nearbyTable) : [];
         return {
           canCraftInInventory: noTable.length > 0,
           canCraftWithTable: withTable.length > 0,
           requiresTable: noTable.length === 0 && withTable.length > 0,
+          nearbyTableFound: nearbyTable !== null,
         };
       },
     }),
