@@ -14,27 +14,9 @@ const bboxSchema = z.object({
   max: vec3Schema,
 });
 
-// Recursive task schema using z.lazy
-const taskSchema: z.ZodType<any> = z.lazy(() =>
-  z.discriminatedUnion('task', [
-    z.object({ task: z.literal('mine'), target: z.string(), quantity: z.number().int().min(1), area: bboxSchema.optional() }),
-    z.object({ task: z.literal('craft'), recipe: z.string(), count: z.number().int().min(1) }),
-    z.object({ task: z.literal('smelt'), input: z.string(), fuel: z.string(), count: z.number().int().min(1) }),
-    z.object({ task: z.literal('eat'), item: z.string().optional() }),
-    z.object({ task: z.literal('travel'), destination: vec3Schema, sprint: z.boolean().optional(), range: z.number().optional() }),
-    z.object({ task: z.literal('build'), blocks: z.array(z.object({ pos: vec3Schema, block: z.string() })).min(1), relative: z.boolean().optional() }),
-    z.object({ task: z.literal('attack'), target: z.string(), retreatOnLowHealth: z.number().optional() }),
-    z.object({ task: z.literal('sleep') }),
-    z.object({ task: z.literal('equip'), item: z.string(), slot: z.enum(['hand', 'off-hand', 'head', 'torso', 'legs', 'feet']) }),
-    z.object({ task: z.literal('stash'), items: z.array(z.string()), chest: vec3Schema }),
-    z.object({ task: z.literal('retrieve'), items: z.array(z.string()), chest: vec3Schema }),
-    z.object({ task: z.literal('wait'), seconds: z.number().min(1).max(600) }),
-    z.object({ task: z.literal('flee'), from: vec3Schema, distance: z.number().min(1) }),
-    z.object({ task: z.literal('placeBlock'), position: vec3Schema, block: z.string() }),
-    z.object({ task: z.literal('sequence'), steps: z.array(taskSchema).min(1) }),
-    z.object({ task: z.literal('repeat'), inner: taskSchema, count: z.number().int().min(-1) }),
-  ]),
-);
+// Task schema as a JSON string — recursive schemas break many providers.
+// The brain outputs a JSON string, we parse it in the brain loop.
+// The description tells the LLM the exact format.
 
 export function buildBrainTools(bot: BotConnection, memory: AgentMemory) {
   return {
@@ -169,8 +151,23 @@ export function buildBrainTools(bot: BotConnection, memory: AgentMemory) {
     }),
 
     executeTask: tool({
-      description: `Execute a survival task. Runs mechanically with zero inference cost until completion or interrupt. Tasks: mine, craft, smelt, eat, travel, build, attack, sleep, equip, stash, retrieve, wait, flee, placeBlock, sequence (chain tasks), repeat.`,
-      inputSchema: z.object({ task: taskSchema }),
+      description: `Execute a survival task. Output the task as a JSON string. Runs mechanically with zero inference cost.
+Available task types:
+  {"task":"mine","target":"oak_log","quantity":5}
+  {"task":"craft","recipe":"oak_planks","count":4}
+  {"task":"smelt","input":"raw_iron","fuel":"coal","count":8}
+  {"task":"eat"} or {"task":"eat","item":"cooked_beef"}
+  {"task":"travel","destination":{"x":10,"y":64,"z":-20}}
+  {"task":"build","blocks":[{"pos":{"x":0,"y":0,"z":0},"block":"cobblestone"}],"relative":true}
+  {"task":"attack","target":"nearest_hostile"}
+  {"task":"sleep"}
+  {"task":"equip","item":"stone_sword","slot":"hand"}
+  {"task":"wait","seconds":60}
+  {"task":"flee","from":{"x":10,"y":64,"z":-20},"distance":20}
+  {"task":"placeBlock","position":{"x":10,"y":64,"z":-20},"block":"crafting_table"}
+  {"task":"sequence","steps":[...array of tasks...]}
+  {"task":"repeat","inner":{...task...},"count":3}`,
+      inputSchema: z.object({ task: z.string().describe('JSON string of the task object') }),
       // No execute — this is a stop tool
     }),
 

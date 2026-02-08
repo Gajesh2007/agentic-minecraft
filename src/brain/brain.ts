@@ -51,6 +51,9 @@ export class Brain {
         await this.thinkOnce();
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
+        const stack = err instanceof Error ? err.stack : undefined;
+        console.error(`[brain] Error: ${message}`);
+        if (stack) console.error(stack);
         this.events.publish('brain.error', { message });
         await new Promise(r => setTimeout(r, 5000));
       }
@@ -111,7 +114,7 @@ export class Brain {
         system: promptPack.system,
         prompt: promptPack.userMessage,
         tools,
-        toolChoice: 'required',
+        toolChoice: useGateway ? 'auto' : 'required',
         stopWhen: [hasToolCall('executeTask'), hasToolCall('done'), stepCountIs(50)],
         ...(useGateway ? {} : {
           providerOptions: {
