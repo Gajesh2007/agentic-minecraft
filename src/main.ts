@@ -1,144 +1,125 @@
+import { join } from 'node:path';
 import { loadConfig } from './config.js';
 import { EventBus } from './events/event-bus.js';
-import { AppEvents } from './events/event-types.js';
-import { JsonlEventStore } from './events/jsonl-event-store.js';
+import { JsonlEventStore } from './events/jsonl-store.js';
+import type { SurvivalEvents } from './events/event-types.js';
+import { BotConnection } from './bot/connection.js';
+import { TaskExecutor } from './task/executor.js';
+import { InterruptManager } from './interrupt/manager.js';
+import { Brain } from './brain/brain.js';
+import { BudgetTracker } from './budget/tracker.js';
+import { ThoughtStream } from './stream/thought-stream.js';
+import { AgentMemory } from './store/agent-memory.js';
 import { buildServer } from './api/server.js';
-import { AgentRuntime } from './runtime/agent-runtime.js';
-import { Supervisor } from './supervisor/supervisor.js';
-import { BotRunner } from './bot-runner.js';
 
 const MAX_RECONNECT_DELAY = 60_000;
 const BASE_RECONNECT_DELAY = 2_000;
 
+let shuttingDown = false;
+let reconnecting = false;
+
 async function main() {
   const config = loadConfig();
-
-  const events = new EventBus<AppEvents>();
-  const eventStore = new JsonlEventStore<AppEvents>(config.EVENTS_JSONL_PATH);
+  const events = new EventBus<SurvivalEvents>();
+  const eventStore = new JsonlEventStore<SurvivalEvents>(config.EVENTS_JSONL_PATH);
   await eventStore.init();
 
   events.onAny(event => {
-    void eventStore.append(event).catch(err => {
-      console.error('eventStore.append failed', err);
-    });
+    void eventStore.append(event).catch(console.error);
   });
 
   events.publish('app.start', { pid: process.pid });
+  console.log(`[agentic-survival] Agent: ${config.AGENT_NAME} | Model: ${config.BRAIN_MODEL}`);
 
-  const agent = new AgentRuntime(config, events);
-  const botRunner = new BotRunner(config, events, agent);
-  await botRunner.init();
+  const bot = new BotConnection(config, events);
+  const memory = new AgentMemory(join(config.DATA_DIR, 'agent-memory.json'));
+  await memory.init();
 
-  // Clean up orphaned episodes from previous crash/restart
-  const orphaned = botRunner.cleanupOrphanedEpisodes();
-  if (orphaned > 0) {
-    events.publish('log.note', { text: `cleaned up ${orphaned} orphaned episode(s) from previous run`, tags: ['startup'] });
-  }
-
-  const supervisor = new Supervisor(config, events, botRunner);
-  await supervisor.init();
-
-  // --- Reconnection with exponential backoff ---
-  let reconnectAttempts = 0;
-  let reconnecting = false;
-  let shuttingDown = false;
+  const budget = new BudgetTracker(config, events);
+  const thoughtStream = new ThoughtStream(config.THOUGHT_STREAM_PORT);
+  const interruptManager = new InterruptManager(bot, events);
+  const executor = new TaskExecutor(bot, events);
+  const brain = new Brain(config, events, bot, executor, interruptManager, memory, budget, thoughtStream);
 
   async function connectWithRetry(): Promise<void> {
+    let attempts = 0;
     while (!shuttingDown) {
       try {
-        await agent.connect();
-        reconnectAttempts = 0;
+        await bot.connect();
+        attempts = 0;
+        console.log(`[agentic-survival] Connected to ${config.MC_HOST}:${config.MC_PORT}`);
         return;
       } catch (err) {
-        reconnectAttempts += 1;
+        attempts++;
         const message = err instanceof Error ? err.message : String(err);
-        events.publish('app.error', { message: `connect failed (attempt ${reconnectAttempts}): ${message}` });
-        const delay = Math.min(BASE_RECONNECT_DELAY * 2 ** (reconnectAttempts - 1), MAX_RECONNECT_DELAY);
-        events.publish('log.note', { text: `retrying connection in ${delay}ms`, tags: ['reconnect'] });
-        await new Promise(resolve => setTimeout(resolve, delay));
+        events.publish('app.error', { message: `connect failed (attempt ${attempts}): ${message}` });
+        const delay = Math.min(BASE_RECONNECT_DELAY * 2 ** (attempts - 1), MAX_RECONNECT_DELAY);
+        console.log(`[agentic-survival] Retry in ${delay}ms...`);
+        await new Promise(r => setTimeout(r, delay));
       }
     }
   }
 
-  // Listen for bot disconnects and auto-reconnect
   events.onType('bot.end', () => {
     if (shuttingDown || reconnecting) return;
     reconnecting = true;
-    events.publish('log.note', { text: 'bot disconnected, scheduling reconnect', tags: ['reconnect'] });
+    console.log('[agentic-survival] Disconnected, reconnecting...');
+    brain.stop();
     setTimeout(async () => {
       try {
         await connectWithRetry();
-      } catch {
-        // connectWithRetry only exits on shuttingDown
-      }
+        if (config.BRAIN_AUTOSTART && !shuttingDown) void brain.start();
+      } catch { /* */ }
       reconnecting = false;
     }, BASE_RECONNECT_DELAY);
   });
 
-  events.onType('bot.kicked', () => {
-    if (shuttingDown || reconnecting) return;
-    reconnecting = true;
-    events.publish('log.note', { text: 'bot kicked, scheduling reconnect', tags: ['reconnect'] });
-    setTimeout(async () => {
-      try {
-        await connectWithRetry();
-      } catch {
-        // connectWithRetry only exits on shuttingDown
-      }
-      reconnecting = false;
-    }, 5_000); // longer delay after kick
-  });
-
-  // Initial connection
   await connectWithRetry();
 
-  if (config.SUPERVISOR_AUTOSTART) {
-    if (config.DEFAULT_OBJECTIVE && !supervisor.getObjective()) {
-      supervisor.setObjective(config.DEFAULT_OBJECTIVE);
-    }
-    void supervisor.start();
+  const mfBot = bot.getBot();
+  await new Promise<void>(resolve => {
+    if (mfBot.entity) resolve();
+    else mfBot.once('spawn', () => resolve());
+  });
+
+  console.log(`[agentic-survival] Bot spawned. Budget: $${config.BUDGET_INITIAL}`);
+
+  if (config.BRAIN_AUTOSTART) {
+    console.log('[agentic-survival] Brain autostarting...');
+    void brain.start();
   }
 
-  const server = await buildServer({ config, events, eventStore, agent, supervisor, botRunner });
+  const server = await buildServer({ config, events, bot, brain, budget });
   await server.listen({ port: config.PORT, host: config.HOST });
+  console.log(`[agentic-survival] API: http://${config.HOST}:${config.PORT}`);
+  console.log(`[agentic-survival] Thought stream: ws://localhost:${config.THOUGHT_STREAM_PORT}`);
+  console.log(`[agentic-survival] Events SSE: http://${config.HOST}:${config.PORT}/v1/events/stream`);
 
-  // --- Graceful shutdown ---
   async function shutdown(signal: string) {
     if (shuttingDown) return;
     shuttingDown = true;
-    events.publish('log.note', { text: `shutdown requested (${signal})`, tags: ['lifecycle'] });
-
-    supervisor.stop(`shutdown: ${signal}`);
-    botRunner.cancelAllJobs();
-
-    try {
-      await agent.disconnect(`shutdown: ${signal}`);
-    } catch { /* best effort */ }
-
-    try {
-      await server.close();
-    } catch { /* best effort */ }
-
+    console.log(`\n[agentic-survival] Shutdown (${signal})...`);
+    brain.stop();
+    try { await bot.disconnect(`shutdown: ${signal}`); } catch { /* */ }
+    try { thoughtStream.close(); } catch { /* */ }
+    try { await server.close(); } catch { /* */ }
     process.exit(0);
   }
 
   process.on('SIGINT', () => void shutdown('SIGINT'));
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
-
   process.on('uncaughtException', err => {
     events.publish('app.error', { message: `uncaughtException: ${err.message}`, stack: err.stack });
     console.error('uncaughtException:', err);
   });
-
   process.on('unhandledRejection', reason => {
     const message = reason instanceof Error ? reason.message : String(reason);
-    const stack = reason instanceof Error ? reason.stack : undefined;
-    events.publish('app.error', { message: `unhandledRejection: ${message}`, stack });
+    events.publish('app.error', { message: `unhandledRejection: ${message}` });
     console.error('unhandledRejection:', reason);
   });
 }
 
 main().catch(err => {
-  console.error(err);
-  process.exitCode = 1;
+  console.error('Fatal:', err);
+  process.exit(1);
 });
