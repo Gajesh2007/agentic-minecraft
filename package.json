@@ -6,6 +6,7 @@
     "dev:agent": "pnpm --filter agent dev",
     "dev:spectator": "pnpm --filter spectator dev",
     "dev:web": "pnpm --filter web dev",
+    "dev": "pnpm --filter agent dev & pnpm --filter spectator dev & pnpm --filter web dev & wait",
     "dev:coordinator": "pnpm --filter coordinator dev",
     "typecheck": "pnpm -r typecheck",
     "build": "pnpm -r build",
