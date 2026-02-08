@@ -1,0 +1,31 @@
+{
+  "name": "agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=../../.env src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json",
+    "start": "node --env-file=../../.env dist/main.js"
+  },
+  "dependencies": {
+    "@agentic-survival/shared": "workspace:*",
+    "@ai-sdk/anthropic": "^3.0.37",
+    "@fastify/cors": "^11.2.0",
+    "ai": "^6.0.70",
+    "fastify": "^5.7.4",
+    "mineflayer": "^4.34.0",
+    "mineflayer-auto-eat": "^5.0.3",
+    "mineflayer-pathfinder": "^2.4.5",
+    "vec3": "^0.1.10",
+    "ws": "^8.18.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.0",
+    "@types/ws": "^8.5.10",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

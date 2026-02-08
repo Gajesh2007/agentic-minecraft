@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "paths": {
+      "@agentic-survival/shared": ["../../packages/shared/src/index.ts"]
+    }
+  },
+  "include": ["src", "../../packages/shared/src"]
+}
