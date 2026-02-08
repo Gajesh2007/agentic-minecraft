@@ -113,7 +113,7 @@ Example first-day plan:
   { "task": "craft", "recipe": "crafting_table", "count": 1 },
   { "task": "placeBlock", "position": { "x": 0, "y": 0, "z": 0 }, "block": "crafting_table" },
   { "task": "craft", "recipe": "wooden_pickaxe", "count": 1 },
-  { "task": "mine", "target": "cobblestone", "quantity": 20 },
+  { "task": "mine", "target": "stone", "quantity": 20 },
   { "task": "craft", "recipe": "stone_pickaxe", "count": 1 },
   { "task": "craft", "recipe": "stone_sword", "count": 1 },
   { "task": "craft", "recipe": "furnace", "count": 1 }
