@@ -4,6 +4,7 @@
   "engines": { "node": ">=22" },
   "scripts": {
     "dev:agent": "pnpm --filter agent dev",
+    "dev:spectator": "pnpm --filter spectator dev",
     "dev:coordinator": "pnpm --filter coordinator dev",
     "typecheck": "pnpm -r typecheck",
     "build": "pnpm -r build",

@@ -91,10 +91,28 @@ importers:
       '@agentic-survival/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@fastify/cors':
+        specifier: ^11.2.0
+        version: 11.2.0
+      fastify:
+        specifier: ^5.7.4
+        version: 5.7.4
+      mineflayer:
+        specifier: ^4.34.0
+        version: 4.34.0
+      ws:
+        specifier: ^8.18.0
+        version: 8.19.0
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
     devDependencies:
       '@types/node':
         specifier: ^25.2.0
         version: 25.2.1
+      '@types/ws':
+        specifier: ^8.5.10
+        version: 8.18.1
       tsx:
         specifier: ^4.21.0
         version: 4.21.0
