@@ -52,6 +52,7 @@ export async function executePlaceBlock(
     // Equip the block
     console.log(`    [placeBlock] Equipping ${item.name} (count: ${item.count})`);
     await bot.equip(item, 'hand');
+    await bot.waitForTicks(3); // Wait for equip to register
 
     // If position is 0,0,0 use bot's current position (means "place here")
     const pos = (task.position.x === 0 && task.position.y === 0 && task.position.z === 0)
@@ -63,6 +64,7 @@ export async function executePlaceBlock(
 
     // Re-equip after walking (pathfinder may have changed held item)
     await bot.equip(item, 'hand');
+    await bot.waitForTicks(3);
 
     // Try placing against the block below
     const below = bot.blockAt(targetPos.offset(0, -1, 0));

@@ -17,7 +17,11 @@ export async function executeCraft(
 
   if (recipes.length > 0) {
     try {
-      await bot.craft(recipes[0]!, task.count, null);
+      // count = desired output quantity. Recipe may produce multiple per iteration.
+      const outputPerCraft = recipes[0]!.result?.count ?? 1;
+      const iterations = Math.ceil(task.count / outputPerCraft);
+      console.log(`    [craft] Crafting ${task.count} ${task.recipe} (${iterations} iterations, ${outputPerCraft} per craft, no table)`);
+      await bot.craft(recipes[0]!, iterations, null);
       return { status: 'completed', task, itemsCrafted: task.count, duration: 0 };
     } catch (err: any) {
       return { status: 'failed', task, error: `Craft failed: ${err.message}`, duration: 0 };
@@ -56,7 +60,10 @@ export async function executeCraft(
   }
 
   try {
-    await bot.craft(recipes[0]!, task.count, tableBlock);
+    const outputPerCraft = recipes[0]!.result?.count ?? 1;
+    const iterations = Math.ceil(task.count / outputPerCraft);
+    console.log(`    [craft] Crafting ${task.count} ${task.recipe} (${iterations} iterations, ${outputPerCraft} per craft, with table)`);
+    await bot.craft(recipes[0]!, iterations, tableBlock);
     return { status: 'completed', task, itemsCrafted: task.count, duration: 0 };
   } catch (err: any) {
     return { status: 'failed', task, error: `Craft failed: ${err.message}`, duration: 0 };
