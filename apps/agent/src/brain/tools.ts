@@ -149,6 +149,34 @@ export function buildBrainTools(bot: BotConnection, memory: AgentMemory) {
       },
     }),
 
+    searchItems: tool({
+      description: 'Search the game item registry by name. Use to find exact item names for crafting, e.g. search "pickaxe" to find all pickaxe variants.',
+      inputSchema: z.object({ query: z.string().min(1).max(50) }),
+      execute: async input => {
+        const mfBot = bot.getBot();
+        const q = input.query.toLowerCase();
+        const matches = Object.values(mfBot.registry.itemsByName)
+          .filter((item: any) => item.name.includes(q) || item.displayName?.toLowerCase().includes(q))
+          .slice(0, 20)
+          .map((item: any) => ({ name: item.name, displayName: item.displayName, id: item.id, stackSize: item.stackSize }));
+        return { results: matches, total: matches.length };
+      },
+    }),
+
+    searchBlockRegistry: tool({
+      description: 'Search the game block registry by name. Use to find exact block names for mining, e.g. search "ore" to find all ores.',
+      inputSchema: z.object({ query: z.string().min(1).max(50) }),
+      execute: async input => {
+        const mfBot = bot.getBot();
+        const q = input.query.toLowerCase();
+        const matches = Object.values(mfBot.registry.blocksByName)
+          .filter((block: any) => block.name.includes(q) || block.displayName?.toLowerCase().includes(q))
+          .slice(0, 20)
+          .map((block: any) => ({ name: block.name, displayName: block.displayName, hardness: block.hardness, diggable: block.diggable }));
+        return { results: matches, total: matches.length };
+      },
+    }),
+
     readMemory: tool({
       description: 'Read your persistent memory: learnings, preferences, notes, shelter location.',
       inputSchema: z.object({}),
