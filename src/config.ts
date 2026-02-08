@@ -18,7 +18,9 @@ const envSchema = z.object({
   AGENT_NAME: z.string().min(1).default('Survivor'),
   BRAIN_AUTOSTART: booleanFromString.default(true),
   BRAIN_MODEL: z.string().min(1).default('claude-opus-4-6'),
-  ANTHROPIC_API_KEY: z.string().min(1),
+  BRAIN_PROVIDER: z.enum(['anthropic', 'gateway']).default('anthropic'),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  AI_GATEWAY_API_KEY: z.string().optional(),
 
   BUDGET_INITIAL: z.coerce.number().min(0).default(500),
   THOUGHT_STREAM_PORT: z.coerce.number().int().min(1).max(65535).default(8081),

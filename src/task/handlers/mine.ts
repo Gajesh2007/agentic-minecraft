@@ -3,27 +3,6 @@ import pkg from 'mineflayer-pathfinder';
 const { goals } = pkg;
 import type { MineTask, TaskResult } from '../types.js';
 
-const PATHFIND_TIMEOUT = 15000; // 15 seconds max to reach a block
-
-async function pathfindWithTimeout(bot: any, goal: any, timeout: number): Promise<boolean> {
-  return new Promise<boolean>(resolve => {
-    const timer = setTimeout(() => {
-      bot.pathfinder.stop();
-      resolve(false);
-    }, timeout);
-
-    bot.pathfinder.goto(goal)
-      .then(() => {
-        clearTimeout(timer);
-        resolve(true);
-      })
-      .catch(() => {
-        clearTimeout(timer);
-        resolve(false);
-      });
-  });
-}
-
 export async function executeMine(
   bot: any,
   task: MineTask,
@@ -37,7 +16,7 @@ export async function executeMine(
   let mined = 0;
   let failedAttempts = 0;
 
-  while (mined < task.quantity && !signal.aborted && failedAttempts < 3) {
+  while (mined < task.quantity && !signal.aborted && failedAttempts < 5) {
     const block = bot.findBlock({
       matching: blockType.id,
       maxDistance: 64,
@@ -56,26 +35,26 @@ export async function executeMine(
 
     console.log(`    [mine] Found ${task.target} at ${block.position.x},${block.position.y},${block.position.z} (${Math.round(block.position.distanceTo(bot.entity.position))}m away)`);
 
-    // Pathfind to within 4 blocks of the target
-    const goal = new goals.GoalNear(block.position.x, block.position.y, block.position.z, 4);
-    const reached = await pathfindWithTimeout(bot, goal, PATHFIND_TIMEOUT);
-
-    if (!reached) {
-      console.log(`    [mine] Pathfinding failed/timed out for ${task.target}`);
+    // Pathfind to within reach — let it walk as long as it needs
+    try {
+      const goal = new goals.GoalNear(block.position.x, block.position.y, block.position.z, 4);
+      await bot.pathfinder.goto(goal);
+    } catch {
+      console.log(`    [mine] Pathfinding failed for ${task.target}`);
       failedAttempts++;
       continue;
     }
 
     if (signal.aborted) return { status: 'interrupted', task, blocksMined: mined, duration: 0 };
 
-    // Re-find the block (it might have changed while pathfinding)
+    // Re-check the block (it might have changed)
     const currentBlock = bot.blockAt(block.position);
     if (!currentBlock || currentBlock.type !== blockType.id) {
       failedAttempts++;
       continue;
     }
 
-    // Dig the block
+    // Dig
     try {
       if (bot.canDigBlock(currentBlock)) {
         await bot.dig(currentBlock);

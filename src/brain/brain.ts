@@ -1,4 +1,4 @@
-import { generateText, hasToolCall, stepCountIs } from 'ai';
+import { generateText, hasToolCall, stepCountIs, gateway } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { AppConfig } from '../config.js';
 import { EventBus } from '../events/event-bus.js';
@@ -99,18 +99,25 @@ export class Brain {
     this.abortController = new AbortController();
     this.thoughtCount++;
 
+    const useGateway = this.config.BRAIN_PROVIDER === 'gateway';
+    const model = useGateway
+      ? gateway(this.config.BRAIN_MODEL)
+      : anthropic(this.config.BRAIN_MODEL);
+
     const result = await this.budget.track(() =>
       generateText({
-        model: anthropic(this.config.BRAIN_MODEL),
+        model,
         abortSignal: this.abortController!.signal,
         system: promptPack.system,
         prompt: promptPack.userMessage,
         tools,
         toolChoice: 'required',
         stopWhen: [hasToolCall('executeTask'), hasToolCall('done'), stepCountIs(50)],
-        providerOptions: {
-          anthropic: { cacheControl: { type: 'ephemeral' } },
-        },
+        ...(useGateway ? {} : {
+          providerOptions: {
+            anthropic: { cacheControl: { type: 'ephemeral' } },
+          },
+        }),
         prepareStep: ({ stepNumber, messages }) => {
           // Safety net: force executeTask after step 45 so the brain always concludes
           if (stepNumber >= 45) {
@@ -119,7 +126,7 @@ export class Brain {
             };
           }
           // Cache last message for Anthropic prompt caching
-          if (messages.length > 0) {
+          if (!useGateway && messages.length > 0) {
             return {
               messages: messages.map((msg, i) =>
                 i === messages.length - 1
