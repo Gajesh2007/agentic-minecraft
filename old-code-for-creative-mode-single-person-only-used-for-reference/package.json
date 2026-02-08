@@ -1,0 +1,39 @@
+{
+  "name": "clawcraft",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json",
+    "start": "node --env-file=.env dist/main.js",
+    "reset": "rm -rf .data && echo 'Data reset.'"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.37",
+    "@ai-sdk/gateway": "^3.0.35",
+    "@fastify/cors": "^11.2.0",
+    "@fastify/http-proxy": "^11.4.1",
+    "@fastify/static": "^9.0.0",
+    "ai": "^6.0.70",
+    "canvas": "^3.2.1",
+    "fastify": "^5.7.4",
+    "mineflayer": "^4.34.0",
+    "mineflayer-pathfinder": "^2.4.5",
+    "prismarine-block": "^1.7.3",
+    "prismarine-viewer": "^1.33.0",
+    "puppeteer": "^22.9.0",
+    "vec3": "^0.1.10",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

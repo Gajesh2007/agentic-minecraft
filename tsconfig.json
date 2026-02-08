@@ -18,5 +18,5 @@
     "noUnusedParameters": false
   },
   "include": ["src"],
-  "exclude": ["node_modules", "dist", "old", "tmp"]
+  "exclude": ["node_modules", "dist", "old-code-for-creative-mode-single-person-only-used-for-reference", "tmp"]
 }

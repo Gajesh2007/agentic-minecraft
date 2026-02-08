@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ClawCraft Dashboard</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b0d12;
+        --panel: #111623;
+        --muted: #8aa0b8;
+        --text: #e6eef8;
+        --border: #243044;
+        --good: #3ddc97;
+        --bad: #ff5a7a;
+        --warn: #ffd166;
+        --accent: #5b8def;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: radial-gradient(1000px 600px at 10% 0%, #15223c, var(--bg));
+        color: var(--text);
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
+          "Apple Color Emoji", "Segoe UI Emoji";
+        font-size: 13px;
+      }
+      header {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--border);
+        background: color-mix(in oklab, var(--panel) 85%, transparent);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        backdrop-filter: blur(8px);
+      }
+      header h1 {
+        font-size: 14px;
+        margin: 0;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        padding: 12px;
+      }
+      .card {
+        border: 1px solid var(--border);
+        background: color-mix(in oklab, var(--panel) 92%, transparent);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .card h2 {
+        font-size: 11px;
+        margin: 0;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        color: var(--muted);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .card .body {
+        padding: 10px 12px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .pill {
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 999px;
+        padding: 4px 9px;
+        font-size: 11px;
+        white-space: nowrap;
+      }
+      .pill strong {
+        font-family: var(--mono);
+        font-weight: 600;
+      }
+      .pill.good { border-color: color-mix(in oklab, var(--good) 40%, var(--border)); }
+      .pill.bad { border-color: color-mix(in oklab, var(--bad) 40%, var(--border)); }
+      .pill.warn { border-color: color-mix(in oklab, var(--warn) 40%, var(--border)); }
+      .pill.accent { border-color: color-mix(in oklab, var(--accent) 40%, var(--border)); }
+      .mono { font-family: var(--mono); }
+      .log {
+        height: 400px;
+        overflow: auto;
+        font-family: var(--mono);
+        font-size: 11px;
+        line-height: 1.5;
+        padding: 10px 12px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      iframe {
+        width: 100%;
+        height: 450px;
+        border: 0;
+        background: #000;
+      }
+      .muted { color: var(--muted); }
+      button {
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text);
+        border-radius: 8px;
+        padding: 6px 10px;
+        cursor: pointer;
+        font-size: 11px;
+      }
+      button:hover { background: rgba(255, 255, 255, 0.08); }
+      button.active { border-color: var(--accent); background: rgba(91, 141, 239, 0.1); }
+      select {
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text);
+        border-radius: 8px;
+        padding: 6px 8px;
+        font-size: 11px;
+      }
+      .episode-item {
+        padding: 6px 0;
+        border-bottom: 1px solid color-mix(in oklab, var(--border) 50%, transparent);
+        font-size: 11px;
+        line-height: 1.4;
+      }
+      .episode-item:last-child { border-bottom: none; }
+      .episode-item .status {
+        display: inline-block;
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        margin-right: 6px;
+      }
+      .episode-item .status.completed { background: var(--good); }
+      .episode-item .status.failed { background: var(--bad); }
+      .episode-item .status.running { background: var(--warn); }
+      .structure-list { max-height: 200px; overflow-y: auto; }
+      .structure-item {
+        padding: 4px 0;
+        font-size: 11px;
+        display: flex;
+        justify-content: space-between;
+      }
+      .full-width { grid-column: 1 / -1; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>ClawCraft</h1>
+      <div class="controls">
+        <button id="connectBtn">Connect</button>
+        <button id="pauseBtn">Pause</button>
+        <button id="resumeBtn">Resume</button>
+        <span style="color:var(--border)">|</span>
+        <button id="supervisorStartBtn">Start AI</button>
+        <button id="supervisorStopBtn">Stop AI</button>
+        <select id="modeSelect">
+          <option value="explore">Explore</option>
+          <option value="build">Build</option>
+          <option value="refine">Refine</option>
+          <option value="plan">Plan</option>
+        </select>
+        <button id="setModeBtn">Set mode</button>
+        <button id="emergencyBtn" style="border-color:var(--bad);color:var(--bad)">E-Stop</button>
+      </div>
+    </header>
+
+    <!-- Objective bar -->
+    <div style="padding:10px 12px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center">
+      <span class="muted" style="font-size:11px;white-space:nowrap">Objective:</span>
+      <input id="objectiveInput" type="text" placeholder="e.g. Build a medieval village with 4 houses and a town square"
+        style="flex:1;border:1px solid var(--border);background:rgba(255,255,255,0.04);color:var(--text);border-radius:8px;padding:8px 12px;font-size:12px;outline:none" />
+      <button id="setObjectiveBtn">Set &amp; Start</button>
+      <span id="currentObjective" class="muted" style="font-size:11px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+    </div>
+
+    <div class="grid">
+      <!-- Status -->
+      <section class="card">
+        <h2>Status</h2>
+        <div class="body">
+          <div class="row" id="statusPills"></div>
+          <p class="muted" style="margin:8px 0 0">
+            Viewer: <span class="mono" id="viewerUrl"></span>
+          </p>
+        </div>
+      </section>
+
+      <!-- Live world view -->
+      <section class="card">
+        <h2>Live World View</h2>
+        <iframe id="viewerFrame" title="Prismarine viewer"></iframe>
+      </section>
+
+      <!-- Episodes -->
+      <section class="card">
+        <h2>
+          Recent Episodes
+          <span class="muted" id="episodeCount"></span>
+        </h2>
+        <div class="body" id="episodeList" style="max-height:250px;overflow-y:auto">
+          <p class="muted">Loading...</p>
+        </div>
+      </section>
+
+      <!-- World Index -->
+      <section class="card">
+        <h2>
+          World Index
+          <span class="muted" id="structureCount"></span>
+        </h2>
+        <div class="body structure-list" id="structureList">
+          <p class="muted">Loading...</p>
+        </div>
+      </section>
+
+      <!-- Event log -->
+      <section class="card full-width">
+        <h2>Event Log (live)</h2>
+        <div class="log" id="log"></div>
+      </section>
+    </div>
+
+    <script type="module">
+      const el = (id) => document.getElementById(id);
+
+      const logEl = el('log');
+      const statusPills = el('statusPills');
+      const viewerFrame = el('viewerFrame');
+      const viewerUrlEl = el('viewerUrl');
+      const episodeList = el('episodeList');
+      const episodeCount = el('episodeCount');
+      const structureList = el('structureList');
+      const structureCount = el('structureCount');
+      const modeSelect = el('modeSelect');
+
+      function appendLog(line) {
+        const atBottom = logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 20;
+        logEl.textContent += line + "\n";
+        if (logEl.childNodes.length > 2000) {
+          const text = logEl.textContent;
+          logEl.textContent = text.slice(text.length / 2);
+        }
+        if (atBottom) logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      function pill(label, value, cls) {
+        const d = document.createElement('div');
+        d.className = `pill ${cls || ''}`;
+        d.innerHTML = `${label}: <strong>${value}</strong>`;
+        return d;
+      }
+
+      function formatDuration(ms) {
+        if (ms < 1000) return `${ms}ms`;
+        const s = Math.floor(ms / 1000);
+        if (s < 60) return `${s}s`;
+        return `${Math.floor(s / 60)}m${s % 60}s`;
+      }
+
+      async function refreshStatus() {
+        try {
+          const res = await fetch('/v1/status');
+          const st = await res.json();
+
+          statusPills.innerHTML = '';
+          statusPills.appendChild(pill('bot', st.connected ? 'connected' : 'offline', st.connected ? 'good' : 'bad'));
+          statusPills.appendChild(pill('ready', String(st.ready), st.ready ? 'good' : 'bad'));
+          statusPills.appendChild(pill('paused', String(st.paused), st.paused ? 'warn' : 'good'));
+          statusPills.appendChild(pill('AI', st.supervisor.running ? 'running' : 'stopped', st.supervisor.running ? 'good' : ''));
+
+          const modeRes = await fetch('/v1/supervisor/mode');
+          const modeData = await modeRes.json();
+          statusPills.appendChild(pill('mode', modeData.mode, 'accent'));
+          modeSelect.value = modeData.mode;
+
+          if (st.bot?.username) statusPills.appendChild(pill('user', st.bot.username));
+          if (st.bot?.position) {
+            const p = st.bot.position;
+            statusPills.appendChild(pill('pos', `${p.x.toFixed(0)},${p.y.toFixed(0)},${p.z.toFixed(0)}`));
+          }
+          if (st.budgets) {
+            statusPills.appendChild(pill('budget', `${st.budgets.maxCommands}cmd/${st.budgets.maxSeconds}s`));
+          }
+          if (st.buildZone) {
+            const b = st.buildZone;
+            statusPills.appendChild(pill('zone', `${b.max.x - b.min.x}x${b.max.z - b.min.z}`, ''));
+          }
+
+          const viewerUrl = `${location.origin}/viewer/`;
+          viewerUrlEl.textContent = viewerUrl;
+          if (!viewerFrame.src.includes('/viewer/')) {
+            viewerFrame.src = viewerUrl;
+          }
+        } catch { /* offline */ }
+      }
+
+      async function refreshEpisodes() {
+        try {
+          const res = await fetch('/v1/episodes?limit=15');
+          const data = await res.json();
+          const episodes = data.episodes.reverse();
+          episodeCount.textContent = `(${episodes.length})`;
+
+          if (episodes.length === 0) {
+            episodeList.innerHTML = '<p class="muted">No episodes yet</p>';
+            return;
+          }
+
+          episodeList.innerHTML = episodes.map(ep => {
+            const dur = ep.endedAt
+              ? formatDuration(new Date(ep.endedAt).getTime() - new Date(ep.startedAt).getTime())
+              : 'running...';
+            return `<div class="episode-item">
+              <span class="status ${ep.status}"></span>
+              <strong>${ep.objective || 'no objective'}</strong>
+              <span class="muted"> (${dur})</span>
+              ${ep.summary ? `<br><span class="muted">${ep.summary}</span>` : ''}
+            </div>`;
+          }).join('');
+        } catch { /* offline */ }
+      }
+
+      async function refreshStructures() {
+        try {
+          const res = await fetch('/v1/world/structures');
+          const data = await res.json();
+          const structures = data.structures;
+          structureCount.textContent = `(${structures.length})`;
+
+          if (structures.length === 0) {
+            structureList.innerHTML = '<p class="muted">No structures registered</p>';
+            return;
+          }
+
+          structureList.innerHTML = structures.map(s => {
+            return `<div class="structure-item">
+              <span>${s.name} <span class="muted">(${s.type})</span></span>
+              <span class="mono muted">${s.structureId.slice(0, 12)}</span>
+            </div>`;
+          }).join('');
+        } catch { /* offline */ }
+      }
+
+      async function post(path, body) {
+        const opts = { method: 'POST' };
+        if (body) {
+          opts.headers = { 'Content-Type': 'application/json' };
+          opts.body = JSON.stringify(body);
+        }
+        const res = await fetch(path, opts);
+        if (!res.ok) throw new Error(`${path}: ${res.status}`);
+        await refreshStatus();
+      }
+
+      el('connectBtn').addEventListener('click', () => post('/v1/agent/connect').catch(e => appendLog(String(e))));
+      el('pauseBtn').addEventListener('click', () => post('/v1/control/pause').catch(e => appendLog(String(e))));
+      el('resumeBtn').addEventListener('click', () => post('/v1/control/resume').catch(e => appendLog(String(e))));
+      el('supervisorStartBtn').addEventListener('click', () => post('/v1/supervisor/start').catch(e => appendLog(String(e))));
+      el('supervisorStopBtn').addEventListener('click', () => post('/v1/supervisor/stop').catch(e => appendLog(String(e))));
+      el('emergencyBtn').addEventListener('click', () => post('/v1/control/emergency-stop').catch(e => appendLog(String(e))));
+      el('setModeBtn').addEventListener('click', () => {
+        const mode = modeSelect.value;
+        post('/v1/supervisor/set-mode', { mode }).catch(e => appendLog(String(e)));
+      });
+
+      const objectiveInput = el('objectiveInput');
+      const currentObjective = el('currentObjective');
+
+      async function refreshObjective() {
+        try {
+          const res = await fetch('/v1/supervisor/objective');
+          const data = await res.json();
+          if (data.objective) {
+            currentObjective.textContent = 'Current: ' + data.objective;
+          } else {
+            currentObjective.textContent = '';
+          }
+        } catch { /* offline */ }
+      }
+
+      el('setObjectiveBtn').addEventListener('click', async () => {
+        const text = objectiveInput.value.trim();
+        if (!text) return;
+        try {
+          await post('/v1/supervisor/set-objective', { objective: text });
+          // Auto-start supervisor if not running
+          await post('/v1/supervisor/start');
+          objectiveInput.value = '';
+          await refreshObjective();
+        } catch (e) {
+          appendLog(String(e));
+        }
+      });
+
+      objectiveInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') el('setObjectiveBtn').click();
+      });
+
+      // Live events via SSE
+      const sse = new EventSource('/v1/events/stream');
+      sse.addEventListener('heartbeat', () => {});
+
+      const eventTypes = [
+        'supervisor.step', 'supervisor.start', 'supervisor.stop',
+        'episode.start', 'episode.finish',
+        'job.created', 'job.updated', 'job.progress',
+        'blueprint.created', 'script.compiled',
+        'verify.result', 'render.done',
+        'structure.registered', 'city.plan.created',
+        'bot.connect', 'bot.login', 'bot.spawn', 'bot.end', 'bot.kicked', 'bot.error',
+        'app.start', 'app.error',
+        'log.note',
+      ];
+
+      for (const type of eventTypes) {
+        sse.addEventListener(type, (ev) => {
+          try {
+            const data = JSON.parse(ev.data);
+            const ts = new Date(data.ts).toLocaleTimeString();
+            const summary = data.data ? JSON.stringify(data.data) : '';
+            appendLog(`[${ts}] ${data.type} ${summary}`);
+          } catch {
+            appendLog(ev.data);
+          }
+        });
+      }
+
+      sse.onerror = () => appendLog('[sse] reconnecting...');
+
+      // Refresh episodes and structures when relevant events arrive
+      sse.addEventListener('episode.finish', () => setTimeout(refreshEpisodes, 500));
+      sse.addEventListener('episode.start', () => setTimeout(refreshEpisodes, 500));
+      sse.addEventListener('structure.registered', () => setTimeout(refreshStructures, 500));
+
+      // Initial load
+      await refreshStatus();
+      await refreshEpisodes();
+      await refreshStructures();
+      await refreshObjective();
+      setInterval(refreshStatus, 5000);
+      setInterval(refreshEpisodes, 15000);
+      setInterval(refreshStructures, 30000);
+    </script>
+  </body>
+</html>

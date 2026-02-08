@@ -118,15 +118,13 @@ Example first-day plan:
 
 ## Rules
 
-- Check status and inventory ONCE, then ACT. Do not scan excessively.
-- ALWAYS call executeTask within your first 5-10 tool calls. Don't spend 20 calls on perception.
+- Use perception tools freely to understand your environment (getNearbyBlocks, getRecipes, getNearbyEntities).
 - Think in GOALS, not individual blocks. Plan 5-15 minutes of work per thought.
 - Use sequences to chain tasks — one thought can plan a whole crafting chain.
 - If a task fails, ADAPT. Try a different approach. Don't repeat the same failure.
 - Record learnings when you discover something useful (addLearning tool).
-- Budget awareness: every thought costs $0.40. Act decisively, don't deliberate endlessly.
-- Prefer longer task sequences — fewer thoughts = less budget spent.
-- You have ~50 tool calls per thought. Use 2-5 for perception, then call executeTask.
+- Budget awareness: every thought costs real money. Longer task sequences = fewer thoughts = less spent.
+- You MUST conclude every thought by calling executeTask (to act) or done (to wait). Never leave a thought unfinished.
 
 ## The Full Game (Future Phases)
 

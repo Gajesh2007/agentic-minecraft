@@ -112,7 +112,7 @@ export class Brain {
           anthropic: { cacheControl: { type: 'ephemeral' } },
         },
         prepareStep: ({ stepNumber, messages }) => {
-          // Force action after 45 steps
+          // Safety net: force executeTask after step 45 so the brain always concludes
           if (stepNumber >= 45) {
             return {
               toolChoice: { type: 'tool' as const, toolName: 'executeTask' as const },
@@ -134,22 +134,19 @@ export class Brain {
     );
 
     const allToolCalls = result.steps.flatMap(s => s.toolCalls);
-    console.log(`  [brain debug] steps: ${result.steps.length}, toolCalls: ${allToolCalls.length}, names: [${allToolCalls.map(c => c.toolName).join(', ')}]`);
-    if (allToolCalls.length === 0) {
-      console.log(`  [brain debug] text: ${(result.text || '').slice(0, 200)}`);
-      console.log(`  [brain debug] finishReasons: [${result.steps.map(s => s.finishReason).join(', ')}]`);
-    }
 
-    // Handle executeTask
+    // Handle executeTask — AI SDK v6 uses .input for tool call arguments
     const taskCall = allToolCalls.find(c => c.toolName === 'executeTask');
     if (taskCall) {
-      // AI SDK v6: tool call args can be at .args or .input
-      const raw = taskCall as any;
-      const args = raw.args ?? raw.input ?? {};
-      console.log(`  [brain debug] executeTask raw keys: ${Object.keys(raw).join(', ')}`);
-      console.log(`  [brain debug] args keys: ${Object.keys(args).join(', ')}`);
-      console.log(`  [brain debug] args.task: ${JSON.stringify(args.task)?.slice(0, 200) ?? 'undefined'}`);
-      const task = (args.task ?? args) as Task;
+      const input = (taskCall as any).input as { task: Task } | undefined;
+      const task = input?.task;
+
+      if (!task || !task.task) {
+        console.log(`[brain] WARNING: executeTask called but task is malformed:`, JSON.stringify(input)?.slice(0, 300));
+        this.lastTaskResult = { status: 'failed', task: task ?? { task: 'wait', seconds: 5 } as Task, error: 'Malformed task from brain', duration: 0 };
+        return;
+      }
+
       const reasoning = result.text || '';
 
       this.thoughtStream.emit({
@@ -180,7 +177,7 @@ export class Brain {
     // Handle done
     const doneCall = allToolCalls.find(c => c.toolName === 'done');
     if (doneCall) {
-      const input = ((doneCall as any).args ?? (doneCall as any).input) as { summary: string; learning?: string; note?: string };
+      const input = (doneCall as any).input as { summary: string; learning?: string; note?: string };
       if (input.learning) this.memory.addLearning(input.learning);
       if (input.note) this.memory.addNote(input.note);
       console.log(`\n[brain #${this.thoughtCount}] done: ${input.summary}`);

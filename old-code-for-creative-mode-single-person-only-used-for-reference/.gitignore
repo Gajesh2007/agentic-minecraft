@@ -1,0 +1,13 @@
+node_modules/
+dist/
+tmp/
+
+.data/
+.env
+.env.production
+.env.local
+
+*.tsbuildinfo
+.DS_Store
+PLAN_PROPOSED.md
+Learning.md

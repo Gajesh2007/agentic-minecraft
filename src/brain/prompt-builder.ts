@@ -71,12 +71,10 @@ export function buildPrompt(opts: {
     parts.push(`## Your Memory\n${memorySummary}`);
   }
 
-  // Available tools hint
-  parts.push(`## Available Actions
-- getStatus, getInventory, getNearbyEntities, getNearbyBlocks, getRecipes — check your situation
-- readMemory, addLearning, writeNote — persistent memory
-- executeTask — run a survival task (mine, craft, smelt, eat, travel, build, attack, sleep, equip, stash, retrieve, wait, flee, placeBlock, sequence, repeat)
-- done — end this thought (with optional learning/note to save)`);
+  // Action guidance
+  parts.push(`## What To Do
+Your status and inventory are shown above. Use perception tools (getNearbyBlocks, getNearbyEntities, getRecipes) to understand your situation. Then call executeTask with your plan. Use sequence tasks for multi-step plans.
+Remember: you MUST call either executeTask or done before your turn ends.`);
 
   return {
     system: SYSTEM_PROMPT,
