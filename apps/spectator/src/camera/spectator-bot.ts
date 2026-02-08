@@ -1,4 +1,5 @@
 import mineflayer from 'mineflayer';
+import { mineflayer as startViewer } from 'prismarine-viewer';
 import type { SpectatorConfig } from '../config.js';
 
 export type CameraMode = 'follow' | 'firstPerson' | 'overhead' | 'free';
@@ -25,6 +26,7 @@ export class SpectatorBot {
   private followHeight: number;
   private updateInterval: number;
   private lastTpPos = { x: NaN, y: NaN, z: NaN };
+  private viewerStarted = false;
 
   /** Called when the bot disconnects (for reconnection logic in main.ts). */
   onDisconnect: (() => void) | null = null;
@@ -49,6 +51,7 @@ export class SpectatorBot {
       const onSpawn = () => {
         cleanup();
         this.bot!.chat('/gamemode spectator');
+        this.startViewer();
         resolve();
       };
 
@@ -162,6 +165,22 @@ export class SpectatorBot {
       followDistance: this.followDistance,
       followHeight: this.followHeight,
     };
+  }
+
+  /** Start the prismarine-viewer web renderer. */
+  private startViewer(): void {
+    if (this.viewerStarted || !this.bot) return;
+    this.viewerStarted = true;
+    try {
+      startViewer(this.bot, {
+        port: this.config.VIEWER_PORT,
+        firstPerson: this.config.VIEWER_FIRST_PERSON,
+        viewDistance: this.config.VIEWER_VIEW_DISTANCE,
+      });
+      console.log(`[spectator] 3D viewer: http://localhost:${this.config.VIEWER_PORT}`);
+    } catch (err: any) {
+      console.error(`[spectator] Viewer failed to start: ${err.message}`);
+    }
   }
 
   // ---------------------------------------------------------------------------

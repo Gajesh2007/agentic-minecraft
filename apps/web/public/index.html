@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agentic Survival</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a0a; color: #e0e0e0; font-family: 'JetBrains Mono', 'Fira Code', monospace; height: 100vh; overflow: hidden; }
+
+    .container { display: flex; height: 100vh; }
+
+    /* Left: 3D viewer */
+    .viewer-panel { flex: 1; position: relative; background: #111; }
+    .viewer-panel iframe { width: 100%; height: 100%; border: none; }
+    .viewer-overlay {
+      position: absolute; top: 16px; left: 16px;
+      background: rgba(0,0,0,0.7); padding: 8px 14px; border-radius: 6px;
+      font-size: 13px; color: #aaa;
+    }
+    .viewer-overlay .agent-name { color: #4ade80; font-weight: bold; font-size: 15px; }
+    .viewer-overlay .budget { color: #facc15; }
+
+    /* Right: thought panel */
+    .thought-panel { width: 400px; background: #111; border-left: 1px solid #222; display: flex; flex-direction: column; }
+    .thought-header { padding: 12px 16px; background: #1a1a1a; border-bottom: 1px solid #222; font-size: 14px; color: #888; }
+    .thought-list { flex: 1; overflow-y: auto; padding: 8px; }
+
+    .thought-item {
+      margin-bottom: 8px; padding: 10px 12px;
+      background: #1a1a1a; border-radius: 6px; border-left: 3px solid #333;
+      font-size: 12px; line-height: 1.5;
+    }
+    .thought-item.new { border-left-color: #4ade80; animation: flash 0.5s; }
+    .thought-item .meta { color: #666; font-size: 11px; margin-bottom: 4px; }
+    .thought-item .trigger { color: #f97316; }
+    .thought-item .task { color: #38bdf8; }
+    .thought-item .cost { color: #facc15; }
+    .thought-item .reasoning { color: #ccc; margin-top: 6px; }
+
+    .event-item {
+      margin-bottom: 4px; padding: 4px 8px;
+      font-size: 11px; color: #666; border-left: 2px solid #222;
+    }
+    .event-item.task-start { border-left-color: #38bdf8; }
+    .event-item.task-complete { border-left-color: #4ade80; }
+    .event-item.task-error { border-left-color: #ef4444; }
+    .event-item.interrupt { border-left-color: #f97316; }
+
+    /* Bottom bar */
+    .bottom-bar {
+      padding: 8px 16px; background: #1a1a1a; border-top: 1px solid #222;
+      font-size: 12px; color: #666; display: flex; gap: 16px; align-items: center;
+    }
+    .bottom-bar .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; }
+    .bottom-bar .status-dot.connected { background: #4ade80; }
+
+    @keyframes flash { from { background: #1a2e1a; } to { background: #1a1a1a; } }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #111; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="viewer-panel">
+      <iframe id="viewer" src="http://localhost:3007"></iframe>
+      <div class="viewer-overlay">
+        <div class="agent-name" id="agentName">Connecting...</div>
+        <div>Budget: <span class="budget" id="budget">--</span></div>
+        <div>Thought: <span id="thoughtCount">0</span></div>
+      </div>
+    </div>
+
+    <div class="thought-panel">
+      <div class="thought-header">Agent Thoughts</div>
+      <div class="thought-list" id="thoughtList"></div>
+      <div class="bottom-bar">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Connecting...</span>
+        <span style="margin-left:auto" id="playerCount">0 players</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SPECTATOR_URL = 'http://localhost:8082';
+    const thoughtList = document.getElementById('thoughtList');
+    const agentName = document.getElementById('agentName');
+    const budget = document.getElementById('budget');
+    const thoughtCount = document.getElementById('thoughtCount');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const playerCount = document.getElementById('playerCount');
+
+    // Connect to spectator SSE stream
+    function connectStream() {
+      const source = new EventSource(`${SPECTATOR_URL}/v1/stream`);
+
+      source.addEventListener('thought', (e) => {
+        const thought = JSON.parse(e.data);
+        agentName.textContent = thought.agentName;
+        budget.textContent = `$${thought.budgetRemaining.toFixed(2)}`;
+        thoughtCount.textContent = thought.thoughtNumber;
+
+        const div = document.createElement('div');
+        div.className = 'thought-item new';
+        const taskName = typeof thought.task === 'object' ? thought.task?.task : thought.task;
+        div.innerHTML = `
+          <div class="meta">
+            #${thought.thoughtNumber} · <span class="trigger">${thought.trigger}</span> · <span class="cost">-$${thought.cost.toFixed(4)}</span>
+          </div>
+          <div>Task: <span class="task">${taskName || 'none'}</span></div>
+          ${thought.reasoning ? `<div class="reasoning">${thought.reasoning.slice(0, 300)}</div>` : ''}
+        `;
+        thoughtList.prepend(div);
+        setTimeout(() => div.classList.remove('new'), 500);
+
+        // Keep max 50 items
+        while (thoughtList.children.length > 50) thoughtList.lastChild.remove();
+      });
+
+      source.addEventListener('agent', (e) => {
+        const event = JSON.parse(e.data);
+        const type = event.type;
+        if (!['task.start', 'task.complete', 'task.error', 'interrupt.fired'].includes(type)) return;
+
+        const div = document.createElement('div');
+        const cls = type.startsWith('task.') ? type.replace('.', '-') : 'interrupt';
+        div.className = `event-item ${cls}`;
+        div.textContent = `${type}: ${JSON.stringify(event.data).slice(0, 120)}`;
+        thoughtList.prepend(div);
+
+        while (thoughtList.children.length > 50) thoughtList.lastChild.remove();
+      });
+
+      source.addEventListener('camera', (e) => {
+        const status = JSON.parse(e.data);
+        statusDot.className = `status-dot ${status.connected ? 'connected' : ''}`;
+        statusText.textContent = status.connected
+          ? `${status.mode} · ${status.target || 'no target'}`
+          : 'Disconnected';
+      });
+
+      source.onerror = () => {
+        statusDot.className = 'status-dot';
+        statusText.textContent = 'Stream disconnected — reconnecting...';
+      };
+    }
+
+    // Fetch player count periodically
+    async function updatePlayers() {
+      try {
+        const res = await fetch(`${SPECTATOR_URL}/v1/players`);
+        const data = await res.json();
+        playerCount.textContent = `${data.players.length} players`;
+      } catch {}
+    }
+
+    connectStream();
+    updatePlayers();
+    setInterval(updatePlayers, 10000);
+  </script>
+</body>
+</html>

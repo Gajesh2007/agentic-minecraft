@@ -19,6 +19,11 @@ const envSchema = z.object({
   FOLLOW_HEIGHT: z.coerce.number().min(0).max(32).default(4),
   UPDATE_INTERVAL_MS: z.coerce.number().int().min(50).max(2000).default(500),
 
+  // 3D Viewer
+  VIEWER_PORT: z.coerce.number().int().min(1).max(65535).default(3007),
+  VIEWER_FIRST_PERSON: z.string().default('false').transform(v => v === 'true'),
+  VIEWER_VIEW_DISTANCE: z.coerce.number().int().min(2).max(32).default(6),
+
   // Agent connection (to aggregate thoughts + events)
   AGENT_THOUGHT_WS: z.string().default('ws://localhost:8081'),
   AGENT_SSE_URL: z.string().default('http://localhost:8080/v1/events/stream'),

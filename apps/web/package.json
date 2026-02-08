@@ -2,7 +2,9 @@
   "name": "web",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "typecheck": "echo 'web: no typecheck yet'"
+    "dev": "npx serve public -l 3000 -C",
+    "typecheck": "echo 'web: static HTML, no typecheck'"
   }
 }
