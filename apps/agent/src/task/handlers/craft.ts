@@ -31,6 +31,9 @@ export async function executeCraft(
       const iterations = Math.ceil(task.count / outputPerCraft);
       console.log(`    [craft] ${task.count} ${task.recipe} (${iterations} iters × ${outputPerCraft} each, no table)`);
       await craftWithTimeout(bot, recipes[0]!, iterations, null);
+      await bot.waitForTicks(4);
+      const crafted = bot.inventory.items().find((i: any) => i.name === task.recipe);
+      console.log(`    [craft] Done. Have ${crafted?.count ?? 0} ${task.recipe} in inventory`);
       return { status: 'completed', task, itemsCrafted: task.count, duration: 0 };
     } catch (err: any) {
       return { status: 'failed', task, error: `Craft failed: ${err.message}`, duration: 0 };
@@ -76,6 +79,9 @@ export async function executeCraft(
     const iterations = Math.ceil(task.count / outputPerCraft);
     console.log(`    [craft] ${task.count} ${task.recipe} (${iterations} iters × ${outputPerCraft} each, with table)`);
     await craftWithTimeout(bot, recipes[0]!, iterations, tableBlock);
+    await bot.waitForTicks(4);
+    const crafted = bot.inventory.items().find((i: any) => i.name === task.recipe);
+    console.log(`    [craft] Done. Have ${crafted?.count ?? 0} ${task.recipe} in inventory`);
     return { status: 'completed', task, itemsCrafted: task.count, duration: 0 };
   } catch (err: any) {
     return { status: 'failed', task, error: `Craft failed: ${err.message}`, duration: 0 };
