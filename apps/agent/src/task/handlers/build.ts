@@ -92,7 +92,24 @@ export async function executePlaceBlock(
       }
     }
 
-    return { status: 'failed', task, error: 'No adjacent solid block to place against', duration: 0 };
+    // Fallback: search downward for solid ground and place on top of it
+    console.log(`    [placeBlock] No adjacent block at target. Searching downward for ground...`);
+    for (let dy = 0; dy < 10; dy++) {
+      const groundPos = targetPos.offset(0, -(dy + 1), 0);
+      const ground = bot.blockAt(groundPos);
+      if (ground && ground.name !== 'air' && ground.name !== 'cave_air' && ground.name !== 'water') {
+        // Place on top of this ground block
+        const placeGoal = new goals.GoalNear(groundPos.x, groundPos.y + 1, groundPos.z, 3);
+        try { await bot.pathfinder.goto(placeGoal); } catch { /* best effort */ }
+        await bot.equip(item.type, 'hand');
+        await bot.waitForTicks(2);
+        await bot.placeBlock(ground, new Vec3(0, 1, 0));
+        console.log(`    [placeBlock] Placed ${task.block} on ground at Y=${groundPos.y + 1}`);
+        return { status: 'completed', task, blocksPlaced: 1, duration: 0 };
+      }
+    }
+
+    return { status: 'failed', task, error: 'No solid ground found within 10 blocks below target position', duration: 0 };
   } catch (err: any) {
     return { status: 'failed', task, error: `Place failed: ${err.message}`, duration: 0 };
   }

@@ -100,7 +100,7 @@ export class Brain {
     this.pendingInterrupt = null;
 
     const lastSummary = this.lastTaskResult
-      ? `${this.lastTaskResult.task.task}: ${this.lastTaskResult.status}${this.lastTaskResult.error ? ` (${this.lastTaskResult.error})` : ''} [${this.lastTaskResult.duration}ms]`
+      ? formatTaskResult(this.lastTaskResult)
       : null;
 
     const promptPack = buildPrompt({
@@ -269,4 +269,23 @@ export class Brain {
 
     await new Promise(r => setTimeout(r, 10000));
   }
+}
+
+function formatTaskResult(result: TaskResult): string {
+  const parts: string[] = [];
+  parts.push(`Task: ${result.task.task} — ${result.status.toUpperCase()}`);
+  if (result.error) parts.push(`Error: ${result.error}`);
+  if (result.blocksMined) parts.push(`Blocks mined: ${result.blocksMined}`);
+  if (result.itemsCrafted) parts.push(`Items crafted: ${result.itemsCrafted}`);
+  if (result.blocksPlaced) parts.push(`Blocks placed: ${result.blocksPlaced}`);
+  parts.push(`Duration: ${(result.duration / 1000).toFixed(1)}s`);
+
+  // For sequences, explain what happened
+  if (result.task.task === 'sequence' && result.error) {
+    parts.push(`\nThe sequence failed at one step. Steps before the failure completed successfully.`);
+    parts.push(`Fix the failing step and continue from where you left off — don't redo completed steps.`);
+    parts.push(`TIP: If placeBlock fails, try a different location closer to ground level.`);
+  }
+
+  return parts.join('\n');
 }

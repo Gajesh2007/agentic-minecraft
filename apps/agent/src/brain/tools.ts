@@ -151,6 +151,59 @@ export function buildBrainTools(bot: BotConnection, memory: AgentMemory) {
       },
     }),
 
+    lookAround: tool({
+      description: 'Get a description of your surroundings: what blocks are above/below/around you, ground level, nearby features.',
+      inputSchema: z.object({}),
+      execute: async () => {
+        const mfBot = bot.getBot();
+        const pos = mfBot.entity.position;
+        const x = Math.floor(pos.x), y = Math.floor(pos.y), z = Math.floor(pos.z);
+
+        const check = (dx: number, dy: number, dz: number) => {
+          const b = mfBot.blockAt(pos.offset(dx, dy, dz));
+          return b?.name ?? 'unloaded';
+        };
+
+        // Find ground level below
+        let groundY = y;
+        for (let dy = 0; dy >= -20; dy--) {
+          const b = mfBot.blockAt(pos.offset(0, dy - 1, 0));
+          if (b && b.name !== 'air' && b.name !== 'cave_air') { groundY = y + dy; break; }
+        }
+
+        // Scan nearby for notable blocks
+        const notable: string[] = [];
+        const seen = new Set<string>();
+        for (let dx = -4; dx <= 4; dx++) {
+          for (let dy = -3; dy <= 3; dy++) {
+            for (let dz = -4; dz <= 4; dz++) {
+              const b = mfBot.blockAt(pos.offset(dx, dy, dz));
+              if (b && b.name !== 'air' && b.name !== 'stone' && b.name !== 'dirt' && b.name !== 'grass_block' && !seen.has(b.name)) {
+                seen.add(b.name);
+                notable.push(b.name);
+              }
+            }
+          }
+        }
+
+        return {
+          position: { x, y, z },
+          groundLevel: groundY,
+          heightAboveGround: y - groundY,
+          blockBelow: check(0, -1, 0),
+          blockAbove: check(0, 2, 0),
+          blockNorth: check(0, 0, -1),
+          blockSouth: check(0, 0, 1),
+          blockEast: check(1, 0, 0),
+          blockWest: check(-1, 0, 0),
+          standingOn: check(0, -1, 0),
+          nearbyBlockTypes: notable.slice(0, 15),
+          isOnSurface: groundY >= y - 1,
+          biome: mfBot.blockAt(pos)?.biome?.name ?? 'unknown',
+        };
+      },
+    }),
+
     searchItems: tool({
       description: 'Search the game item registry by name. Use to find exact item names for crafting, e.g. search "pickaxe" to find all pickaxe variants.',
       inputSchema: z.object({ query: z.string().min(1).max(50) }),
