@@ -116,7 +116,7 @@ export class Brain {
     this.thoughtCount++;
 
     const useGateway = this.config.BRAIN_PROVIDER === 'gateway';
-    const isOpenAI = this.config.BRAIN_MODEL.startsWith('openai/');
+    const isOpenAI = this.config.BRAIN_MODEL.startsWith('openai/') || this.config.BRAIN_MODEL.startsWith('azure/');
     const model = useGateway
       ? gateway(this.config.BRAIN_MODEL)
       : anthropic(this.config.BRAIN_MODEL);
