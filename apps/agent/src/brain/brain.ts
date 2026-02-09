@@ -116,9 +116,19 @@ export class Brain {
     this.thoughtCount++;
 
     const useGateway = this.config.BRAIN_PROVIDER === 'gateway';
+    const isOpenAI = this.config.BRAIN_MODEL.startsWith('openai/');
     const model = useGateway
       ? gateway(this.config.BRAIN_MODEL)
       : anthropic(this.config.BRAIN_MODEL);
+
+    // Build provider options based on model
+    const providerOptions: Record<string, any> = {};
+    if (!useGateway) {
+      providerOptions.anthropic = { cacheControl: { type: 'ephemeral' } };
+    }
+    if (isOpenAI) {
+      providerOptions.openai = { reasoningEffort: 'high' };
+    }
 
     const result = await this.budget.track(() =>
       generateText({
@@ -129,11 +139,7 @@ export class Brain {
         tools,
         toolChoice: useGateway ? 'auto' : 'required',
         stopWhen: [hasToolCall('executeTask'), hasToolCall('done'), stepCountIs(50)],
-        ...(useGateway ? {} : {
-          providerOptions: {
-            anthropic: { cacheControl: { type: 'ephemeral' } },
-          },
-        }),
+        ...(Object.keys(providerOptions).length > 0 ? { providerOptions } : {}),
         prepareStep: ({ stepNumber, messages }) => {
           // Safety net: force executeTask after step 45 so the brain always concludes
           if (stepNumber >= 45) {
