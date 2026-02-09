@@ -116,7 +116,7 @@ export class Brain {
     this.thoughtCount++;
 
     const useGateway = this.config.BRAIN_PROVIDER === 'gateway';
-    const isOpenAI = this.config.BRAIN_MODEL.startsWith('openai/') || this.config.BRAIN_MODEL.startsWith('azure/');
+    const isOpenAI = this.config.BRAIN_MODEL.includes('gpt') || this.config.BRAIN_MODEL.includes('o1') || this.config.BRAIN_MODEL.includes('o3') || this.config.BRAIN_MODEL.includes('o4');
     const model = useGateway
       ? gateway(this.config.BRAIN_MODEL)
       : anthropic(this.config.BRAIN_MODEL);
@@ -128,6 +128,9 @@ export class Brain {
     }
     if (isOpenAI) {
       providerOptions.openai = { reasoningEffort: 'high' };
+    }
+    if (useGateway && this.config.GATEWAY_ONLY_PROVIDERS) {
+      providerOptions.gateway = { only: this.config.GATEWAY_ONLY_PROVIDERS.split(',').map(s => s.trim()) };
     }
 
     const result = await this.budget.track(() =>

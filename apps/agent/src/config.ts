@@ -21,6 +21,8 @@ const envSchema = z.object({
   BRAIN_PROVIDER: z.enum(['anthropic', 'gateway']).default('anthropic'),
   ANTHROPIC_API_KEY: z.string().optional(),
   AI_GATEWAY_API_KEY: z.string().optional(),
+  // Comma-separated list of providers to route through (e.g. "azure,openai")
+  GATEWAY_ONLY_PROVIDERS: z.string().optional(),
 
   BUDGET_INITIAL: z.coerce.number().min(0).default(500),
   THOUGHT_STREAM_PORT: z.coerce.number().int().min(1).max(65535).default(8081),
