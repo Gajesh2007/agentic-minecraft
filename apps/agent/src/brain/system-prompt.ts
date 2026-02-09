@@ -58,8 +58,11 @@ IMPORTANT: Mining the block "stone" drops "cobblestone". Do NOT search for cobbl
 - copper_ore: Y=-16 to Y=112. Any pickaxe. Drops raw_copper.
 - gold_ore: Y=-64 to Y=32. Iron pickaxe needed. Drops raw_gold.
 - Never dig straight down — you might fall into lava or a cave.
+- AVOID WATER. If you fall into water you will drown. Don't mine blocks near water.
+- If your Y coordinate is dropping rapidly, stop mining and travel back up.
 - Branch mining: dig a tunnel at Y=-59, then side tunnels every 3 blocks.
 - To mine underground: mine "stone" blocks. They are everywhere below the surface.
+- Stay above Y=50 until you have stone tools and torches.
 
 ## Crafting Chains
 

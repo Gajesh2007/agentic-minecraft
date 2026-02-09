@@ -17,6 +17,31 @@ const BASE_RECONNECT_DELAY = 2_000;
 let shuttingDown = false;
 let reconnecting = false;
 
+/** Wait for spawn, but bail if the bot disconnects or timeout hits. */
+function waitForSpawn(bot: BotConnection, timeoutMs: number): Promise<boolean> {
+  return new Promise(resolve => {
+    const mfBot = bot.getBotOrNull();
+    if (!mfBot) return resolve(false);
+    if (mfBot.entity) return resolve(true);
+
+    let settled = false;
+    const settle = (val: boolean) => { if (!settled) { settled = true; cleanup(); resolve(val); } };
+
+    const timer = setTimeout(() => settle(false), timeoutMs);
+    const onSpawn = () => settle(true);
+    const onEnd = () => settle(false);
+
+    mfBot.once('spawn', onSpawn);
+    mfBot.once('end', onEnd);
+
+    function cleanup() {
+      clearTimeout(timer);
+      mfBot!.removeListener('spawn', onSpawn);
+      mfBot!.removeListener('end', onEnd);
+    }
+  });
+}
+
 async function main() {
   const config = loadConfig();
   const events = new EventBus<SurvivalEvents>();
@@ -35,18 +60,26 @@ async function main() {
   const executor = new TaskExecutor(bot, events);
   const brain = new Brain(config, events, bot, executor, interruptManager, memory, budget, thoughtStream);
 
-  async function connectWithRetry(): Promise<void> {
+  /** Connect and wait for spawn. Retries both connect and spawn with backoff. */
+  async function connectAndSpawn(): Promise<void> {
     let attempts = 0;
     while (!shuttingDown) {
-      try { await bot.connect(); attempts = 0; console.log(`[agentic-survival] Connected to ${config.MC_HOST}:${config.MC_PORT}`); return; }
-      catch (err) {
-        attempts++;
+      try {
+        await bot.connect();
+        console.log(`[agentic-survival] Connected to ${config.MC_HOST}:${config.MC_PORT}`);
+        const spawned = await waitForSpawn(bot, 30_000);
+        if (spawned) return;
+        // Spawn failed (disconnect or timeout) — tear down and retry
+        console.log('[agentic-survival] Spawn failed, disconnecting...');
+        try { await bot.disconnect('spawn_failed'); } catch {}
+      } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        events.publish('app.error', { message: `connect failed (attempt ${attempts}): ${msg}` });
-        const delay = Math.min(BASE_RECONNECT_DELAY * 2 ** (attempts - 1), MAX_RECONNECT_DELAY);
-        console.log(`[agentic-survival] Retry in ${delay}ms...`);
-        await new Promise(r => setTimeout(r, delay));
+        events.publish('app.error', { message: `connect failed (attempt ${attempts + 1}): ${msg}` });
       }
+      attempts++;
+      const delay = Math.min(BASE_RECONNECT_DELAY * 2 ** Math.min(attempts - 1, 5), MAX_RECONNECT_DELAY);
+      console.log(`[agentic-survival] Retry in ${(delay / 1000).toFixed(0)}s...`);
+      await new Promise(r => setTimeout(r, delay));
     }
   }
 
@@ -56,14 +89,21 @@ async function main() {
     console.log('[agentic-survival] Disconnected, reconnecting...');
     brain.stop();
     setTimeout(async () => {
-      try { await connectWithRetry(); if (config.BRAIN_AUTOSTART && !shuttingDown) void brain.start(); } catch {}
+      try {
+        await connectAndSpawn();
+        if (!shuttingDown) {
+          console.log(`[agentic-survival] Bot re-spawned.`);
+          if (config.BRAIN_AUTOSTART) void brain.start();
+        }
+      } catch {}
       reconnecting = false;
     }, BASE_RECONNECT_DELAY);
   });
 
-  await connectWithRetry();
-  const mfBot = bot.getBot();
-  await new Promise<void>(resolve => { if (mfBot.entity) resolve(); else mfBot.once('spawn', () => resolve()); });
+  // Suppress bot.end reconnect handler during initial startup
+  reconnecting = true;
+  await connectAndSpawn();
+  reconnecting = false;
   console.log(`[agentic-survival] Bot spawned. Budget: $${config.BUDGET_INITIAL}`);
 
   if (config.BRAIN_AUTOSTART) { console.log('[agentic-survival] Brain autostarting...'); void brain.start(); }

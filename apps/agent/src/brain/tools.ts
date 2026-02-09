@@ -60,6 +60,8 @@ export function buildBrainTools(bot: BotConnection, memory: AgentMemory) {
             points: mfBot.experience.points,
           },
           gameMode: mfBot.game.gameMode,
+          oxygenLevel: (mfBot as any).oxygenLevel ?? 20,
+          isUnderwater: ((mfBot as any).oxygenLevel ?? 20) < 20,
         };
       },
     }),

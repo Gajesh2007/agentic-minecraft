@@ -31,7 +31,7 @@ export function buildPrompt(opts: {
 - Gamemode: ${snapshot.gamemode ?? 'unknown'}`);
 
   // Inventory summary
-  if (mfBot) {
+  if (mfBot?.inventory) {
     const items = mfBot.inventory.items();
     if (items.length > 0) {
       const inv = items.map((i: any) => `${i.name} x${i.count}`).join(', ');

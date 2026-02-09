@@ -51,6 +51,12 @@ export class Brain {
         await this.thinkOnce();
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
+        // AbortError is expected when bot disconnects mid-thought — don't spam logs
+        if (err instanceof Error && (err.name === 'AbortError' || message.includes('aborted'))) {
+          console.log('[brain] Thought aborted (bot disconnected), will retry...');
+          await new Promise(r => setTimeout(r, 2000));
+          continue;
+        }
         const stack = err instanceof Error ? err.stack : undefined;
         console.error(`[brain] Error: ${message}`);
         if (stack) console.error(stack);
@@ -77,6 +83,13 @@ export class Brain {
   }
 
   private async thinkOnce(): Promise<void> {
+    // Wait for bot to be fully connected and spawned before thinking
+    const mfBot = this.bot.getBotOrNull();
+    if (!mfBot?.entity) {
+      await new Promise(r => setTimeout(r, 2000));
+      return;
+    }
+
     if (!this.budget.canAfford()) {
       this.events.publish('brain.zombie', { budget: this.budget.remaining() });
       await this.zombieBehavior();

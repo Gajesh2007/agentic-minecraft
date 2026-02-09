@@ -59,9 +59,11 @@ export class InterruptManager {
       this.fire('death', {});
     });
 
-    // Chat
+    // Chat — ignore own messages, spectator bot, and server teleport noise
     mfBot.on('chat', (username: string, message: string) => {
       if (username === mfBot.username) return;
+      if (username === 'Spectator') return;
+      if (/^Teleported\s/.test(message)) return;
       this.fire('chat_received', { username, message });
     });
 

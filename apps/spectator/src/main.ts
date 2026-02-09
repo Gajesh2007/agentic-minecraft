@@ -36,17 +36,20 @@ async function main() {
     }
   }
 
-  camera.onDisconnect = () => {
+  camera.onDisconnect = (reason) => {
     if (shuttingDown || reconnecting) return;
     reconnecting = true;
-    console.log('[spectator] Disconnected, reconnecting...');
+    // Use longer delay if kicked for throttling
+    const throttled = reason && reason.toLowerCase().includes('throttl');
+    const delay = throttled ? 15_000 : BASE_RECONNECT_DELAY;
+    console.log(`[spectator] Disconnected${throttled ? ' (throttled)' : ''}, reconnecting in ${delay / 1000}s...`);
     setTimeout(async () => {
       try {
         await connectWithRetry();
         if (config.FOLLOW_TARGET && !shuttingDown) camera.follow(config.FOLLOW_TARGET);
       } catch {}
       reconnecting = false;
-    }, BASE_RECONNECT_DELAY);
+    }, delay);
   };
 
   // Log thoughts to console as they arrive

@@ -29,7 +29,8 @@ export class SpectatorBot {
   private viewerStarted = false;
 
   /** Called when the bot disconnects (for reconnection logic in main.ts). */
-  onDisconnect: (() => void) | null = null;
+  onDisconnect: ((reason?: string) => void) | null = null;
+  private lastKickReason: string | null = null;
 
   constructor(private readonly config: SpectatorConfig) {
     this.followDistance = config.FOLLOW_DISTANCE;
@@ -70,12 +71,15 @@ export class SpectatorBot {
 
       this.bot.on('end', () => {
         this.stopFollowLoop();
+        const kickReason = this.lastKickReason;
+        this.lastKickReason = null;
         this.bot = null;
-        this.onDisconnect?.();
+        this.onDisconnect?.(kickReason ?? undefined);
       });
 
       this.bot.on('kicked', (reason: string) => {
         console.error(`[spectator] Kicked: ${reason}`);
+        this.lastKickReason = reason;
       });
 
       this.bot.on('error', (err: Error) => {

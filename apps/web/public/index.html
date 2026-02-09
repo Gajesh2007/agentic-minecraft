@@ -159,7 +159,37 @@
       } catch {}
     }
 
+    // Fetch initial status so overlay isn't stuck on "Connecting..." until first thought.
+    // Retries until spectator API is reachable (it may start after the web page loads).
+    async function fetchInitialStatus(retries = 10) {
+      for (let i = 0; i < retries; i++) {
+        try {
+          const res = await fetch(`${SPECTATOR_URL}/v1/status`);
+          const data = await res.json();
+          if (data.camera?.connected) {
+            statusDot.className = 'status-dot connected';
+            statusText.textContent = `${data.camera.mode} · ${data.camera.target || 'no target'}`;
+          }
+          const tRes = await fetch(`${SPECTATOR_URL}/v1/thoughts`);
+          const tData = await tRes.json();
+          if (tData.thoughts?.length > 0) {
+            const latest = tData.thoughts[0];
+            agentName.textContent = latest.agentName;
+            budget.textContent = `$${latest.budgetRemaining.toFixed(2)}`;
+            thoughtCount.textContent = latest.thoughtNumber;
+          } else {
+            agentName.textContent = 'Agent online — thinking...';
+          }
+          return;
+        } catch {
+          agentName.textContent = i < 3 ? 'Connecting...' : 'Waiting for spectator...';
+          await new Promise(r => setTimeout(r, 3000));
+        }
+      }
+    }
+
     connectStream();
+    fetchInitialStatus();
     updatePlayers();
     setInterval(updatePlayers, 10000);
   </script>

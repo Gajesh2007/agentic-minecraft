@@ -81,6 +81,9 @@ export class BotConnection {
         movements.allowSprinting = true;
         movements.canDig = true;
         movements.allow1by1towers = true;
+        movements.allowFreeMotion = false;
+        (movements as any).canSwim = false;
+        (movements as any).allowParkour = false;
         (this.bot as any).pathfinder.setMovements(movements);
 
         // Configure auto-eat

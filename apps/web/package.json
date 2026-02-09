@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "npx serve public -l 3000 -C",
+    "dev": "serve public -l 3050 -C",
     "typecheck": "echo 'web: static HTML, no typecheck'"
+  },
+  "devDependencies": {
+    "serve": "^14.2.5"
   }
 }
