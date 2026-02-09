@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import { z } from 'zod';
 import type { SpectatorBot, CameraMode } from '../camera/spectator-bot.js';
 import type { ThoughtAggregator } from '../thought-aggregator.js';
+import { captureScreenshot } from '../screenshot.js';
 
 const cameraModeSchema = z.enum(['follow', 'firstPerson', 'overhead', 'free']);
 
@@ -77,7 +78,41 @@ export async function buildServer(camera: SpectatorBot, thoughts: ThoughtAggrega
     });
   });
 
-  // Camera controls (unchanged)
+  // Screenshot — captures the 3D viewer as a JPEG image
+  app.get('/v1/screenshot', async (req, reply) => {
+    const width = Number((req.query as any)?.width) || 800;
+    const height = Number((req.query as any)?.height) || 600;
+    const viewerPort = camera.getViewerPort();
+    if (!viewerPort) {
+      return reply.status(503).send({ error: 'Viewer not started yet' });
+    }
+    try {
+      const buffer = await captureScreenshot(`http://localhost:${viewerPort}`, width, height);
+      reply.header('Content-Type', 'image/jpeg');
+      reply.header('Cache-Control', 'no-cache');
+      return reply.send(buffer);
+    } catch (err: any) {
+      return reply.status(500).send({ error: `Screenshot failed: ${err.message}` });
+    }
+  });
+
+  // Screenshot as base64 JSON — for LLM vision tools
+  app.get('/v1/screenshot/base64', async (req, reply) => {
+    const width = Number((req.query as any)?.width) || 800;
+    const height = Number((req.query as any)?.height) || 600;
+    const viewerPort = camera.getViewerPort();
+    if (!viewerPort) {
+      return reply.status(503).send({ error: 'Viewer not started yet' });
+    }
+    try {
+      const buffer = await captureScreenshot(`http://localhost:${viewerPort}`, width, height);
+      return { image: `data:image/jpeg;base64,${buffer.toString('base64')}`, width, height };
+    } catch (err: any) {
+      return reply.status(500).send({ error: `Screenshot failed: ${err.message}` });
+    }
+  });
+
+  // Camera controls
   app.post<{ Body: { target: string } }>('/v1/camera/follow', async (req, reply) => {
     const result = z.object({ target: z.string().min(1) }).safeParse(req.body);
     if (!result.success) return reply.status(400).send({ error: result.error.issues });

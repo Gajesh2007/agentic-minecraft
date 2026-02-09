@@ -145,6 +145,10 @@ export class SpectatorBot {
     return this.bot !== null;
   }
 
+  getViewerPort(): number | null {
+    return this.viewerStarted ? this.config.VIEWER_PORT : null;
+  }
+
   getPlayers(): string[] {
     if (!this.bot) return [];
     return Object.keys(this.bot.players);
