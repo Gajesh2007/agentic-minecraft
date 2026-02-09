@@ -1,4 +1,5 @@
 import mineflayer from 'mineflayer';
+import { mineflayer as startViewer } from 'prismarine-viewer';
 import pkg from 'mineflayer-pathfinder';
 const { pathfinder, Movements, goals } = pkg;
 import * as autoEat from 'mineflayer-auto-eat';
@@ -26,8 +27,11 @@ export type BotSnapshot = {
   isRaining?: boolean;
 };
 
+const AGENT_VIEWER_PORT = 3008;
+
 export class BotConnection {
   private bot: MineflayerBot | null = null;
+  private viewerStarted = false;
 
   constructor(
     private readonly config: AppConfig,
@@ -98,6 +102,21 @@ export class BotConnection {
             ae.enable();
           }
         } catch { /* auto-eat may not be available */ }
+
+        // Start first-person viewer for screenshots
+        if (!this.viewerStarted) {
+          this.viewerStarted = true;
+          try {
+            startViewer(this.bot!, {
+              port: AGENT_VIEWER_PORT,
+              firstPerson: true,
+              viewDistance: 4,
+            });
+            console.log(`[agent] First-person viewer: http://localhost:${AGENT_VIEWER_PORT}`);
+          } catch (err: any) {
+            console.error(`[agent] Viewer failed: ${err.message}`);
+          }
+        }
       }
     });
 

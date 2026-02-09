@@ -26,6 +26,9 @@ importers:
       ai:
         specifier: ^6.0.70
         version: 6.0.72(zod@4.3.6)
+      canvas:
+        specifier: ^3.1.0
+        version: 3.2.1
       fastify:
         specifier: ^5.7.4
         version: 5.7.4
@@ -38,6 +41,12 @@ importers:
       mineflayer-pathfinder:
         specifier: ^2.4.5
         version: 2.4.5
+      prismarine-viewer:
+        specifier: ^1.33.0
+        version: 1.33.0
+      puppeteer:
+        specifier: ^22.9.0
+        version: 22.15.0(typescript@5.9.3)
       vec3:
         specifier: ^0.1.10
         version: 0.1.10

@@ -233,7 +233,7 @@ export function buildBrainTools(bot: BotConnection, memory: AgentMemory) {
     }),
 
     takeScreenshot: tool({
-      description: 'Capture a screenshot of the 3D world from the spectator camera. Returns a base64 JPEG image. Use this to visually assess your builds, surroundings, or verify what you see.',
+      description: 'Capture a first-person screenshot of what YOU see in the world. Returns a base64 JPEG image. Use this to visually assess your surroundings, builds, or verify your position.',
       inputSchema: z.object({
         width: z.number().int().min(200).max(1920).optional(),
         height: z.number().int().min(200).max(1080).optional(),
@@ -242,11 +242,22 @@ export function buildBrainTools(bot: BotConnection, memory: AgentMemory) {
         const w = input.width ?? 800;
         const h = input.height ?? 600;
         try {
-          const res = await fetch(`http://localhost:8082/v1/screenshot/base64?width=${w}&height=${h}`);
-          if (!res.ok) return { error: `Screenshot API returned ${res.status}` };
-          return await res.json();
+          // Agent's own first-person viewer on port 3008
+          const puppeteer = await import('puppeteer');
+          const browser = await puppeteer.default.launch({
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'],
+          });
+          const page = await browser.newPage();
+          await page.setViewport({ width: w, height: h });
+          await page.goto(`http://localhost:3008`, { waitUntil: 'domcontentloaded' });
+          await page.waitForSelector('canvas', { timeout: 10000 });
+          await new Promise(r => setTimeout(r, 2000));
+          const buffer = (await page.screenshot({ type: 'jpeg', quality: 85 })) as Buffer;
+          await page.close();
+          await browser.close();
+          return { image: `data:image/jpeg;base64,${buffer.toString('base64')}`, width: w, height: h };
         } catch (err: any) {
-          return { error: `Could not reach spectator API: ${err.message}. Is the spectator running?` };
+          return { error: `Screenshot failed: ${err.message}` };
         }
       },
     }),
