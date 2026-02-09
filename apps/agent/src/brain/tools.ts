@@ -287,8 +287,8 @@ export function buildBrainTools(bot: BotConnection, memory: AgentMemory) {
     }),
 
     executeTask: tool({
-      description: `Execute a survival task. Runs mechanically with zero inference cost until completion or interrupt. Tasks: mine, craft, smelt, eat, travel, build, attack, sleep, equip, stash, retrieve, wait, flee, placeBlock, sequence (chain tasks), repeat.`,
-      inputSchema: z.object({ task: taskSchema }),
+      description: `Execute a survival task as a JSON object. Runs mechanically with zero inference cost until completion or interrupt. Task types: mine, craft, smelt, eat, travel, build, attack, sleep, equip, stash, retrieve, wait, flee, placeBlock, sequence (chain tasks), repeat. Examples: {"task":"mine","target":"oak_log","quantity":5} or {"task":"sequence","steps":[{"task":"mine","target":"stone","quantity":20},{"task":"craft","recipe":"stone_pickaxe","count":1}]}`,
+      inputSchema: z.object({ task: z.string().describe('JSON object string of the task to execute') }),
       // No execute — this is a stop tool
     }),
 
